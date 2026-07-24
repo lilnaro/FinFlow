@@ -4,51 +4,44 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import ru.lilnaro.finflow.presentation.home.HomeAction
-import ru.lilnaro.finflow.presentation.home.HomeScreen
-import ru.lilnaro.finflow.presentation.home.HomeUiState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import ru.lilnaro.finflow.ui.theme.FinFlowTheme
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         enableEdgeToEdge()
-
         setContent {
             FinFlowTheme {
-                FinFlowApp()
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    Greeting(
+                        name = "Android",
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun FinFlowApp() {
-    val homeUiState = HomeUiState()
-
-    HomeScreen(
-        uiState = homeUiState,
-        onAction = { action ->
-            when (action) {
-                HomeAction.TransactionsClicked -> {
-
-                }
-
-                HomeAction.AssistantClicked -> {
-
-                }
-
-                HomeAction.NewMonthClicked -> {
-
-                }
-
-                HomeAction.ArchiveClicked -> {
-
-                }
-            }
-        },
+fun Greeting(name: String, modifier: Modifier = Modifier) {
+    Text(
+        text = "Hello $name!",
+        modifier = modifier
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GreetingPreview() {
+    FinFlowTheme {
+        Greeting("Android")
+    }
 }
