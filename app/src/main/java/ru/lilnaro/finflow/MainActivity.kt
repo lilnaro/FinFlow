@@ -4,44 +4,51 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import ru.lilnaro.finflow.presentation.home.HomeAction
+import ru.lilnaro.finflow.presentation.home.HomeScreen
+import ru.lilnaro.finflow.presentation.home.HomeUiState
 import ru.lilnaro.finflow.ui.theme.FinFlowTheme
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         enableEdgeToEdge()
+
         setContent {
             FinFlowTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                FinFlowApp()
             }
         }
     }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+private fun FinFlowApp() {
+    val homeUiState = HomeUiState()
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    FinFlowTheme {
-        Greeting("Android")
-    }
+    HomeScreen(
+        uiState = homeUiState,
+        onAction = { action ->
+            when (action) {
+                HomeAction.TransactionsClicked -> {
+
+                }
+
+                HomeAction.AssistantClicked -> {
+
+                }
+
+                HomeAction.NewMonthClicked -> {
+
+                }
+
+                HomeAction.ArchiveClicked -> {
+
+                }
+            }
+        },
+    )
 }
