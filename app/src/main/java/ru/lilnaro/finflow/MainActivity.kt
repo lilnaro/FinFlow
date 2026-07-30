@@ -4,10 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import ru.lilnaro.finflow.presentation.home.HomeAction
-import ru.lilnaro.finflow.presentation.home.HomeScreen
-import ru.lilnaro.finflow.presentation.home.HomeUiState
+import androidx.compose.ui.Modifier
+import ru.lilnaro.finflow.navigation.FinFlowNavHost
 import ru.lilnaro.finflow.ui.theme.FinFlowTheme
 
 class MainActivity : ComponentActivity() {
@@ -24,31 +24,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 @Composable
 private fun FinFlowApp() {
-    val homeUiState = HomeUiState()
-
-    HomeScreen(
-        uiState = homeUiState,
-        onAction = { action ->
-            when (action) {
-                HomeAction.TransactionsClicked -> {
-
-                }
-
-                HomeAction.AssistantClicked -> {
-
-                }
-
-                HomeAction.NewMonthClicked -> {
-
-                }
-
-                HomeAction.ArchiveClicked -> {
-
-                }
-            }
-        },
+    FinFlowNavHost(
+        modifier = Modifier.fillMaxSize(),
     )
 }
