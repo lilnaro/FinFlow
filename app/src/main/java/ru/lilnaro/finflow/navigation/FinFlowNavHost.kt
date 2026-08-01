@@ -8,12 +8,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import ru.lilnaro.finflow.presentation.archive.ArchiveScreen
 import ru.lilnaro.finflow.presentation.assistant.AssistantScreen
-import ru.lilnaro.finflow.presentation.home.HomeAction
-import ru.lilnaro.finflow.presentation.home.HomeScreen
-import ru.lilnaro.finflow.presentation.home.HomeUiState
+import ru.lilnaro.finflow.presentation.home.HomeRoute
 import ru.lilnaro.finflow.presentation.newmonth.NewMonthScreen
 import ru.lilnaro.finflow.presentation.transactions.TransactionsScreen
-
 
 @Composable
 fun FinFlowNavHost(
@@ -28,34 +25,26 @@ fun FinFlowNavHost(
         composable(
             route = FinFlowDestination.Home.route,
         ) {
-            HomeScreen(
-                uiState = HomeUiState(),
-                onAction = { action ->
-                    when (action) {
-                        HomeAction.TransactionsClicked -> {
-                            navController.navigate(
-                                FinFlowDestination.Transactions.route,
-                            )
-                        }
-
-                        HomeAction.AssistantClicked -> {
-                            navController.navigate(
-                                FinFlowDestination.Assistant.route,
-                            )
-                        }
-
-                        HomeAction.NewMonthClicked -> {
-                            navController.navigate(
-                                FinFlowDestination.NewMonth.route,
-                            )
-                        }
-
-                        HomeAction.ArchiveClicked -> {
-                            navController.navigate(
-                                FinFlowDestination.Archive.route,
-                            )
-                        }
-                    }
+            HomeRoute(
+                onNavigateToTransactions = {
+                    navController.navigate(
+                        FinFlowDestination.Transactions.route,
+                    )
+                },
+                onNavigateToAssistant = {
+                    navController.navigate(
+                        FinFlowDestination.Assistant.route,
+                    )
+                },
+                onNavigateToNewMonth = {
+                    navController.navigate(
+                        FinFlowDestination.NewMonth.route,
+                    )
+                },
+                onNavigateToArchive = {
+                    navController.navigate(
+                        FinFlowDestination.Archive.route,
+                    )
                 },
             )
         }
