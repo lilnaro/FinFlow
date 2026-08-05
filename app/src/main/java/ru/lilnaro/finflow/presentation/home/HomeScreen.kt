@@ -34,9 +34,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ru.lilnaro.finflow.ui.theme.FinFlowTheme
+import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
+import ru.lilnaro.finflow.ui.theme.FinFlowTheme
 
 @Composable
 fun HomeScreen(
@@ -199,20 +202,32 @@ private fun BudgetInformation(
 
 @Composable
 private fun BudgetChart(
-    initialBudget: Long,
-    currentBalance: Long,
+    initialBudget: BigDecimal,
+    currentBalance: BigDecimal,
 ) {
     val maximumValue = maxOf(
         initialBudget,
         currentBalance,
-        1L,
-    ).toFloat()
+        BigDecimal.ONE,
+    )
 
     val initialBudgetRatio =
-        initialBudget.coerceAtLeast(0L).toFloat() / maximumValue
+        initialBudget
+            .coerceAtLeast(BigDecimal.ZERO)
+            .divide(
+                maximumValue,
+                MathContext.DECIMAL64,
+            )
+            .toFloat()
 
     val currentBalanceRatio =
-        currentBalance.coerceAtLeast(0L).toFloat() / maximumValue
+        currentBalance
+            .coerceAtLeast(BigDecimal.ZERO)
+            .divide(
+                maximumValue,
+                MathContext.DECIMAL64,
+            )
+            .toFloat()
 
     val maximumBarHeight = 72f
 
@@ -300,7 +315,6 @@ private fun ChartColumn(
     }
 }
 
-
 @Composable
 private fun HomeMenuButton(
     symbol: String,
@@ -344,15 +358,18 @@ private fun HomeMenuButton(
     }
 }
 
-
-private fun Long.toRubleText(): String {
-    val formatter = NumberFormat.getIntegerInstance(
+private fun BigDecimal.toRubleText(): String {
+    val formatter = NumberFormat.getNumberInstance(
         Locale.forLanguageTag("ru-RU"),
-    )
+    ).apply {
+        isGroupingUsed = true
+        minimumFractionDigits = 0
+        maximumFractionDigits = 2
+        roundingMode = RoundingMode.HALF_UP
+    }
 
     return "${formatter.format(this)} ₽"
 }
-
 
 private fun Double.toPercentText(): String {
     val formatter = NumberFormat.getNumberInstance(
@@ -367,7 +384,6 @@ private fun Double.toPercentText(): String {
     return "$sign${formatter.format(this)}%"
 }
 
-
 private fun Double.toChangeColor(): Color {
     return when {
         this > 0 -> HomeColors.Positive
@@ -375,7 +391,6 @@ private fun Double.toChangeColor(): Color {
         else -> HomeColors.SecondaryText
     }
 }
-
 
 private object HomeColors {
 

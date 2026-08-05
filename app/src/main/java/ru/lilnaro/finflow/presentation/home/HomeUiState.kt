@@ -1,7 +1,9 @@
 package ru.lilnaro.finflow.presentation.home
 
+import java.math.BigDecimal
+
 data class HomeUiState(
-    val initialBudget: Long = 40_000L,
-    val currentBalance: Long = 27_400L,
+    val initialBudget: BigDecimal = BigDecimal("40000.00"),
+    val currentBalance: BigDecimal = BigDecimal("27400.00"),
     val balanceChangePercent: Double = -31.5,
 )
