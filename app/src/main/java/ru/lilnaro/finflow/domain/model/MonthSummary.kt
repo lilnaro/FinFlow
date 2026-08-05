@@ -1,28 +1,33 @@
 package ru.lilnaro.finflow.domain.model
 
+import java.math.BigDecimal
+import java.math.MathContext
+
 data class MonthSummary(
     val financialMonthId: Long,
-    val initialBudgetInKopecks: Long,
-    val totalIncomeInKopecks: Long,
-    val totalExpenseInKopecks: Long,
+    val initialBudget: BigDecimal,
+    val totalIncome: BigDecimal,
+    val totalExpense: BigDecimal,
 ) {
-        val currentBalanceInKopecks: Long
-        get() = initialBudgetInKopecks +
-                totalIncomeInKopecks -
-                totalExpenseInKopecks
+
+    val currentBalance: BigDecimal
+        get() = initialBudget +
+                totalIncome -
+                totalExpense
 
     val balanceChangePercent: Double?
         get() {
-            if (initialBudgetInKopecks == 0L) {
+            if (initialBudget.signum() == 0) {
                 return null
             }
 
             val balanceDifference =
-                currentBalanceInKopecks - initialBudgetInKopecks
+                currentBalance - initialBudget
 
-            return balanceDifference.toDouble() /
-                    initialBudgetInKopecks.toDouble() *
-                    100.0
+            return balanceDifference
+                .divide(initialBudget, MathContext.DECIMAL64)
+                .multiply(PERCENT_MULTIPLIER)
+                .toDouble()
         }
 
     init {
@@ -30,16 +35,20 @@ data class MonthSummary(
             "Идентификатор финансового месяца должен быть положительным"
         }
 
-        require(initialBudgetInKopecks >= 0L) {
+        require(initialBudget >= BigDecimal.ZERO) {
             "Начальный бюджет не может быть отрицательным"
         }
 
-        require(totalIncomeInKopecks >= 0L) {
+        require(totalIncome >= BigDecimal.ZERO) {
             "Общая сумма доходов не может быть отрицательной"
         }
 
-        require(totalExpenseInKopecks >= 0L) {
+        require(totalExpense >= BigDecimal.ZERO) {
             "Общая сумма расходов не может быть отрицательной"
         }
+    }
+
+    private companion object {
+        val PERCENT_MULTIPLIER: BigDecimal = BigDecimal("100")
     }
 }

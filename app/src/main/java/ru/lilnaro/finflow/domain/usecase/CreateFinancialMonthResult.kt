@@ -1,5 +1,7 @@
 package ru.lilnaro.finflow.domain.usecase
 
+import java.math.BigDecimal
+
 sealed interface CreateFinancialMonthResult {
 
     data class Success(
@@ -17,7 +19,7 @@ sealed interface CreateFinancialMonthResult {
     ) : CreateFinancialMonthResult
 
     data class NegativeInitialBudget(
-        val initialBudgetInKopecks: Long,
+        val initialBudget: BigDecimal,
     ) : CreateFinancialMonthResult
 
     data class InvalidStartedAtMillis(

@@ -1,5 +1,6 @@
 package ru.lilnaro.finflow.domain.usecase
 
+import java.math.BigDecimal
 import kotlinx.coroutines.flow.first
 import ru.lilnaro.finflow.domain.model.FinancialMonth
 import ru.lilnaro.finflow.domain.repository.FinanceRepository
@@ -11,7 +12,7 @@ class CreateFinancialMonthUseCase(
     suspend operator fun invoke(
         year: Int,
         monthNumber: Int,
-        initialBudgetInKopecks: Long,
+        initialBudget: BigDecimal,
         startedAtMillis: Long,
     ): CreateFinancialMonthResult {
         if (
@@ -31,9 +32,9 @@ class CreateFinancialMonthUseCase(
             )
         }
 
-        if (initialBudgetInKopecks < 0L) {
+        if (initialBudget < BigDecimal.ZERO) {
             return CreateFinancialMonthResult.NegativeInitialBudget(
-                initialBudgetInKopecks = initialBudgetInKopecks,
+                initialBudget = initialBudget,
             )
         }
 
@@ -81,8 +82,7 @@ class CreateFinancialMonthUseCase(
         val financialMonth = FinancialMonth(
             year = year,
             monthNumber = monthNumber,
-            initialBudgetInKopecks =
-                initialBudgetInKopecks,
+            initialBudget = initialBudget,
             startedAtMillis = startedAtMillis,
         )
 
