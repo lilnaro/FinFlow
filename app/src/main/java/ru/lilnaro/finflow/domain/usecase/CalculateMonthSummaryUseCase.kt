@@ -1,5 +1,6 @@
 package ru.lilnaro.finflow.domain.usecase
 
+import java.math.BigDecimal
 import ru.lilnaro.finflow.domain.model.FinancialMonth
 import ru.lilnaro.finflow.domain.model.MonthSummary
 import ru.lilnaro.finflow.domain.model.Transaction
@@ -15,8 +16,8 @@ class CalculateMonthSummaryUseCase {
             "Для расчёта итогов финансовый месяц должен быть сохранён"
         }
 
-        var totalIncomeInKopecks = 0L
-        var totalExpenseInKopecks = 0L
+        var totalIncome = BigDecimal.ZERO
+        var totalExpense = BigDecimal.ZERO
 
         transactions.forEach { transaction ->
             require(
@@ -27,23 +28,20 @@ class CalculateMonthSummaryUseCase {
 
             when (transaction.type) {
                 TransactionType.INCOME -> {
-                    totalIncomeInKopecks +=
-                        transaction.amountInKopecks
+                    totalIncome += transaction.amount
                 }
 
                 TransactionType.EXPENSE -> {
-                    totalExpenseInKopecks +=
-                        transaction.amountInKopecks
+                    totalExpense += transaction.amount
                 }
             }
         }
 
         return MonthSummary(
             financialMonthId = financialMonth.id,
-            initialBudgetInKopecks =
-                financialMonth.initialBudgetInKopecks,
-            totalIncomeInKopecks = totalIncomeInKopecks,
-            totalExpenseInKopecks = totalExpenseInKopecks,
+            initialBudget = financialMonth.initialBudget,
+            totalIncome = totalIncome,
+            totalExpense = totalExpense,
         )
     }
 }

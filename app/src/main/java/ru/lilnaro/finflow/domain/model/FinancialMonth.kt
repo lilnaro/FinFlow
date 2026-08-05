@@ -1,10 +1,12 @@
 package ru.lilnaro.finflow.domain.model
 
+import java.math.BigDecimal
+
 data class FinancialMonth(
     val id: Long = 0L,
     val year: Int,
     val monthNumber: Int,
-    val initialBudgetInKopecks: Long,
+    val initialBudget: BigDecimal,
     val startedAtMillis: Long,
     val closedAtMillis: Long? = null,
 ) {
@@ -21,7 +23,7 @@ data class FinancialMonth(
             "Номер месяца должен находиться в диапазоне от 1 до 12"
         }
 
-        require(initialBudgetInKopecks >= 0L) {
+        require(initialBudget >= BigDecimal.ZERO) {
             "Стартовый бюджет не может быть отрицательным"
         }
 

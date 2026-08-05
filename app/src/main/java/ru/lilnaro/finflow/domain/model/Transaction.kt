@@ -1,9 +1,11 @@
 package ru.lilnaro.finflow.domain.model
 
+import java.math.BigDecimal
+
 data class Transaction(
     val id: Long = 0L,
     val financialMonthId: Long,
-    val amountInKopecks: Long,
+    val amount: BigDecimal,
     val type: TransactionType,
     val categoryId: Long,
     val note: String = "",
@@ -19,7 +21,7 @@ data class Transaction(
             "Идентификатор финансового месяца должен быть положительным"
         }
 
-        require(amountInKopecks > 0L) {
+        require(amount > BigDecimal.ZERO) {
             "Сумма транзакции должна быть больше нуля"
         }
 
