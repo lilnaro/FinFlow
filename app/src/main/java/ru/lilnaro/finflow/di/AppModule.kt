@@ -107,6 +107,9 @@ val appModule = module {
     }
 
     viewModel {
-        HomeViewModel()
+        HomeViewModel(
+            observeActiveFinancialMonthUseCase = get(),
+            observeActiveMonthSummaryUseCase = get(),
+        )
     }
 }
