@@ -3,6 +3,7 @@ package ru.lilnaro.finflow.domain.usecase
 import kotlinx.coroutines.flow.first
 import ru.lilnaro.finflow.domain.model.TransactionCategory
 import ru.lilnaro.finflow.domain.model.TransactionType
+import ru.lilnaro.finflow.domain.model.result.AddCategoryResult
 import ru.lilnaro.finflow.domain.repository.FinanceRepository
 
 class AddCategoryUseCase(
