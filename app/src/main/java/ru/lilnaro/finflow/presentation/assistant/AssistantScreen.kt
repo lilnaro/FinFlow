@@ -20,7 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ru.lilnaro.finflow.ui.theme.FinFlowTheme
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowTheme
 
 @Composable
 fun AssistantScreen(

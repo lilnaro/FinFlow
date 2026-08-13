@@ -42,7 +42,7 @@ import java.util.Locale
 import ru.lilnaro.finflow.presentation.home.model.HomeAction
 import ru.lilnaro.finflow.presentation.home.model.HomeUiState
 import ru.lilnaro.finflow.presentation.home.style.HomeColors
-import ru.lilnaro.finflow.ui.theme.FinFlowTheme
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowTheme
 
 @Composable
 fun HomeScreen(
