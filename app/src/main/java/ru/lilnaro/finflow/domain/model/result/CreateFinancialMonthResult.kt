@@ -1,4 +1,4 @@
-package ru.lilnaro.finflow.domain.usecase
+package ru.lilnaro.finflow.domain.model.result
 
 import java.math.BigDecimal
 

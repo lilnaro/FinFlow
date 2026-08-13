@@ -1,4 +1,4 @@
-package ru.lilnaro.finflow.ui.theme
+package ru.lilnaro.finflow.presentation.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

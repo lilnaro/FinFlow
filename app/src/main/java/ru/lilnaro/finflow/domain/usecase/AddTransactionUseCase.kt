@@ -1,6 +1,7 @@
 package ru.lilnaro.finflow.domain.usecase
 
 import ru.lilnaro.finflow.domain.model.Transaction
+import ru.lilnaro.finflow.domain.model.result.AddTransactionResult
 import ru.lilnaro.finflow.domain.repository.FinanceRepository
 
 class AddTransactionUseCase(

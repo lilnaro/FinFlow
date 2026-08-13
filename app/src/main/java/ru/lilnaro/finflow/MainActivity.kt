@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import ru.lilnaro.finflow.navigation.FinFlowNavHost
-import ru.lilnaro.finflow.ui.theme.FinFlowTheme
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
 @Composable
 private fun FinFlowApp() {
     FinFlowNavHost(

@@ -1,4 +1,4 @@
-package ru.lilnaro.finflow.presentation.home
+package ru.lilnaro.finflow.presentation.home.model
 
 sealed interface HomeAction {
 

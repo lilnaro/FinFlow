@@ -1,5 +1,6 @@
 package ru.lilnaro.finflow.domain.usecase
 
+import ru.lilnaro.finflow.domain.model.result.CloseFinancialMonthResult
 import ru.lilnaro.finflow.domain.repository.FinanceRepository
 
 class CloseFinancialMonthUseCase(

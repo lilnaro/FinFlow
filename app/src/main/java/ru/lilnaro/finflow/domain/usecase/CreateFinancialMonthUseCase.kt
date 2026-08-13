@@ -3,6 +3,7 @@ package ru.lilnaro.finflow.domain.usecase
 import java.math.BigDecimal
 import kotlinx.coroutines.flow.first
 import ru.lilnaro.finflow.domain.model.FinancialMonth
+import ru.lilnaro.finflow.domain.model.result.CreateFinancialMonthResult
 import ru.lilnaro.finflow.domain.repository.FinanceRepository
 
 class CreateFinancialMonthUseCase(
