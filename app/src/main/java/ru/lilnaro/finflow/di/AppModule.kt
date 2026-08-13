@@ -1,6 +1,7 @@
 package ru.lilnaro.finflow.di
 
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import ru.lilnaro.finflow.data.local.database.FinFlowDatabase
 import ru.lilnaro.finflow.data.repository.FinanceRepositoryImpl
@@ -15,6 +16,7 @@ import ru.lilnaro.finflow.domain.usecase.ObserveActiveMonthSummaryUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveArchivedFinancialMonthsUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveCategoriesByTypeUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveTransactionsByMonthUseCase
+import ru.lilnaro.finflow.presentation.home.HomeViewModel
 
 val appModule = module {
 
@@ -102,5 +104,9 @@ val appModule = module {
             observeTransactionsByMonthUseCase = get(),
             calculateMonthSummaryUseCase = get(),
         )
+    }
+
+    viewModel {
+        HomeViewModel()
     }
 }
