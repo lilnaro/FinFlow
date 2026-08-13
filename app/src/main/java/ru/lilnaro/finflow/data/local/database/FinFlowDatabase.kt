@@ -1,6 +1,8 @@
 package ru.lilnaro.finflow.data.local.database
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import ru.lilnaro.finflow.data.local.converter.BigDecimalConverters
@@ -28,4 +30,26 @@ abstract class FinFlowDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
 
     abstract fun transactionCategoryDao(): TransactionCategoryDao
+
+    companion object {
+
+        private const val DATABASE_NAME = "finflow.db"
+
+        @Volatile
+        private var instance: FinFlowDatabase? = null
+
+        fun getInstance(context: Context): FinFlowDatabase {
+            return instance ?: synchronized(this) {
+                instance ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    FinFlowDatabase::class.java,
+                    DATABASE_NAME,
+                )
+                    .build()
+                    .also { database ->
+                        instance = database
+                    }
+            }
+        }
+    }
 }
