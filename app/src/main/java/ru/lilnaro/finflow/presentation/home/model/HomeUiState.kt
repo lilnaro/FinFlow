@@ -1,4 +1,4 @@
-package ru.lilnaro.finflow.presentation.home
+package ru.lilnaro.finflow.presentation.home.model
 
 import java.math.BigDecimal
 

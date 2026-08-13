@@ -39,6 +39,8 @@ import java.math.MathContext
 import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
+import ru.lilnaro.finflow.presentation.home.model.HomeAction
+import ru.lilnaro.finflow.presentation.home.model.HomeUiState
 import ru.lilnaro.finflow.ui.theme.FinFlowTheme
 
 @Composable
@@ -266,7 +268,8 @@ private fun BudgetChart(
             ChartColumn(
                 label = "остаток",
                 barColor = HomeColors.CurrentBar,
-                barHeight = currentBarHeight,
+                barHeight = currentBalanceRatio
+                    .let { (maximumBarHeight * it).dp },
             )
         }
     }
