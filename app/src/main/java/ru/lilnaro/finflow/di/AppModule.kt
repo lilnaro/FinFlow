@@ -1,0 +1,106 @@
+package ru.lilnaro.finflow.di
+
+import org.koin.android.ext.koin.androidContext
+import org.koin.dsl.module
+import ru.lilnaro.finflow.data.local.database.FinFlowDatabase
+import ru.lilnaro.finflow.data.repository.FinanceRepositoryImpl
+import ru.lilnaro.finflow.domain.repository.FinanceRepository
+import ru.lilnaro.finflow.domain.usecase.AddCategoryUseCase
+import ru.lilnaro.finflow.domain.usecase.AddTransactionUseCase
+import ru.lilnaro.finflow.domain.usecase.CalculateMonthSummaryUseCase
+import ru.lilnaro.finflow.domain.usecase.CloseFinancialMonthUseCase
+import ru.lilnaro.finflow.domain.usecase.CreateFinancialMonthUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveActiveFinancialMonthUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveActiveMonthSummaryUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveArchivedFinancialMonthsUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveCategoriesByTypeUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveTransactionsByMonthUseCase
+
+val appModule = module {
+
+    single {
+        FinFlowDatabase.getInstance(
+            context = androidContext(),
+        )
+    }
+
+    single {
+        get<FinFlowDatabase>().financialMonthDao()
+    }
+
+    single {
+        get<FinFlowDatabase>().transactionDao()
+    }
+
+    single {
+        get<FinFlowDatabase>().transactionCategoryDao()
+    }
+
+    single<FinanceRepository> {
+        FinanceRepositoryImpl(
+            financialMonthDao = get(),
+            transactionDao = get(),
+            transactionCategoryDao = get(),
+        )
+    }
+
+    factory {
+        AddCategoryUseCase(
+            financeRepository = get(),
+        )
+    }
+
+    factory {
+        AddTransactionUseCase(
+            financeRepository = get(),
+        )
+    }
+
+    factory {
+        CalculateMonthSummaryUseCase()
+    }
+
+    factory {
+        CloseFinancialMonthUseCase(
+            financeRepository = get(),
+        )
+    }
+
+    factory {
+        CreateFinancialMonthUseCase(
+            financeRepository = get(),
+        )
+    }
+
+    factory {
+        ObserveActiveFinancialMonthUseCase(
+            financeRepository = get(),
+        )
+    }
+
+    factory {
+        ObserveArchivedFinancialMonthsUseCase(
+            financeRepository = get(),
+        )
+    }
+
+    factory {
+        ObserveCategoriesByTypeUseCase(
+            financeRepository = get(),
+        )
+    }
+
+    factory {
+        ObserveTransactionsByMonthUseCase(
+            financeRepository = get(),
+        )
+    }
+
+    factory {
+        ObserveActiveMonthSummaryUseCase(
+            observeActiveFinancialMonthUseCase = get(),
+            observeTransactionsByMonthUseCase = get(),
+            calculateMonthSummaryUseCase = get(),
+        )
+    }
+}
