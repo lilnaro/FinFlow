@@ -41,6 +41,7 @@ import java.text.NumberFormat
 import java.util.Locale
 import ru.lilnaro.finflow.presentation.home.model.HomeAction
 import ru.lilnaro.finflow.presentation.home.model.HomeUiState
+import ru.lilnaro.finflow.presentation.home.style.HomeColors
 import ru.lilnaro.finflow.ui.theme.FinFlowTheme
 
 @Composable
@@ -268,8 +269,7 @@ private fun BudgetChart(
             ChartColumn(
                 label = "остаток",
                 barColor = HomeColors.CurrentBar,
-                barHeight = currentBalanceRatio
-                    .let { (maximumBarHeight * it).dp },
+                barHeight = currentBarHeight,
             )
         }
     }
@@ -393,31 +393,6 @@ private fun Double.toChangeColor(): Color {
         this < 0 -> HomeColors.Negative
         else -> HomeColors.SecondaryText
     }
-}
-
-private object HomeColors {
-
-    val AppBackground = Color(0xFF171817)
-
-    val MainCard = Color(0xFF2A2B29)
-
-    val ChartBackground = Color(0xFF181918)
-
-    val Border = Color(0xFF555753)
-
-    val PrimaryText = Color(0xFFF7F7F7)
-
-    val SecondaryText = Color(0xFFD5D7D3)
-
-    val ChartLabel = Color(0xFF8E928C)
-
-    val InitialBar = Color(0xFF327DD7)
-
-    val CurrentBar = Color(0xFFA3575A)
-
-    val Positive = Color(0xFF65C88A)
-
-    val Negative = Color(0xFFFF6067)
 }
 
 @Preview(
