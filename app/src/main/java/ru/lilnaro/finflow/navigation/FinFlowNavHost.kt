@@ -13,7 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import ru.lilnaro.finflow.presentation.archive.ArchiveScreen
 import ru.lilnaro.finflow.presentation.assistant.AssistantScreen
 import ru.lilnaro.finflow.presentation.home.HomeRoute
-import ru.lilnaro.finflow.presentation.newmonth.NewMonthScreen
+import ru.lilnaro.finflow.presentation.newmonth.NewMonthRoute
 import ru.lilnaro.finflow.presentation.transactions.TransactionsRoute
 import ru.lilnaro.finflow.presentation.transactions.addtransaction.AddTransactionRoute
 
@@ -54,7 +54,9 @@ fun FinFlowNavHost(
                     navController.navigate(
                         FinFlowDestination
                             .NewMonth.route,
-                    )
+                    ) {
+                        launchSingleTop = true
+                    }
                 },
                 onNavigateToArchive = {
                     navController.navigate(
@@ -126,8 +128,11 @@ fun FinFlowNavHost(
                 FinFlowDestination
                     .NewMonth.route,
         ) {
-            NewMonthScreen(
-                onBackClick = {
+            NewMonthRoute(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onMonthCreated = {
                     navController.popBackStack()
                 },
             )
