@@ -1,6 +1,10 @@
 package ru.lilnaro.finflow.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -11,6 +15,7 @@ import ru.lilnaro.finflow.presentation.assistant.AssistantScreen
 import ru.lilnaro.finflow.presentation.home.HomeRoute
 import ru.lilnaro.finflow.presentation.newmonth.NewMonthScreen
 import ru.lilnaro.finflow.presentation.transactions.TransactionsRoute
+import ru.lilnaro.finflow.presentation.transactions.addtransaction.AddTransactionRoute
 
 @Composable
 fun FinFlowNavHost(
@@ -18,6 +23,10 @@ fun FinFlowNavHost(
     navController: NavHostController =
         rememberNavController(),
 ) {
+    var transactionsResultMessage by rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
+
     NavHost(
         navController = navController,
         startDestination =
@@ -63,6 +72,38 @@ fun FinFlowNavHost(
         ) {
             TransactionsRoute(
                 onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToAddTransaction = {
+                    navController.navigate(
+                        FinFlowDestination
+                            .AddTransaction.route,
+                    ) {
+                        launchSingleTop = true
+                    }
+                },
+                successMessage =
+                    transactionsResultMessage,
+                onSuccessMessageShown = {
+                    transactionsResultMessage =
+                        null
+                },
+            )
+        }
+
+        composable(
+            route =
+                FinFlowDestination
+                    .AddTransaction.route,
+        ) {
+            AddTransactionRoute(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onTransactionSaved = { message ->
+                    transactionsResultMessage =
+                        message
+
                     navController.popBackStack()
                 },
             )

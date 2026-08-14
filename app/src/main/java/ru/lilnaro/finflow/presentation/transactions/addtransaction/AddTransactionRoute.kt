@@ -1,4 +1,4 @@
-package ru.lilnaro.finflow.presentation.transactions
+package ru.lilnaro.finflow.presentation.transactions.addtransaction
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.SnackbarHostState
@@ -10,17 +10,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.compose.koinViewModel
-import ru.lilnaro.finflow.presentation.transactions.model.TransactionsAction
-import ru.lilnaro.finflow.presentation.transactions.model.TransactionsEffect
+import ru.lilnaro.finflow.presentation.transactions.addtransaction.model.AddTransactionAction
+import ru.lilnaro.finflow.presentation.transactions.addtransaction.model.AddTransactionEffect
 
 @Composable
-fun TransactionsRoute(
+fun AddTransactionRoute(
     onNavigateBack: () -> Unit,
-    onNavigateToAddTransaction: () -> Unit,
-    successMessage: String? = null,
-    onSuccessMessageShown: () -> Unit = {},
+    onTransactionSaved: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: TransactionsViewModel = koinViewModel(),
+    viewModel: AddTransactionViewModel =
+        koinViewModel(),
 ) {
     val uiState by
     viewModel.uiState.collectAsStateWithLifecycle()
@@ -33,32 +32,32 @@ fun TransactionsRoute(
         onNavigateBack,
     )
 
-    val currentOnNavigateToAddTransaction by rememberUpdatedState(
-        onNavigateToAddTransaction,
-    )
-
-    val currentOnSuccessMessageShown by rememberUpdatedState(
-        onSuccessMessageShown,
+    val currentOnTransactionSaved by rememberUpdatedState(
+        onTransactionSaved,
     )
 
     BackHandler {
-        viewModel.onAction(
-            TransactionsAction.BackClicked,
-        )
+        if (!uiState.isSaving) {
+            viewModel.onAction(
+                AddTransactionAction.BackClicked,
+            )
+        }
     }
 
     LaunchedEffect(viewModel) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                TransactionsEffect.NavigateBack -> {
+                AddTransactionEffect.NavigateBack -> {
                     currentOnNavigateBack()
                 }
 
-                TransactionsEffect.NavigateToAddTransaction -> {
-                    currentOnNavigateToAddTransaction()
+                is AddTransactionEffect.TransactionSaved -> {
+                    currentOnTransactionSaved(
+                        effect.message,
+                    )
                 }
 
-                is TransactionsEffect.ShowMessage -> {
+                is AddTransactionEffect.ShowMessage -> {
                     snackbarHostState.showSnackbar(
                         message = effect.message,
                     )
@@ -67,19 +66,7 @@ fun TransactionsRoute(
         }
     }
 
-    LaunchedEffect(successMessage) {
-        val message =
-            successMessage
-                ?: return@LaunchedEffect
-
-        currentOnSuccessMessageShown()
-
-        snackbarHostState.showSnackbar(
-            message = message,
-        )
-    }
-
-    TransactionsScreen(
+    AddTransactionScreen(
         uiState = uiState,
         onAction = viewModel::onAction,
         snackbarHostState = snackbarHostState,

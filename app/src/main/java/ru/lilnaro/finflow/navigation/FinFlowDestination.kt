@@ -12,6 +12,10 @@ sealed interface FinFlowDestination {
         override val route: String = "transactions"
     }
 
+    data object AddTransaction : FinFlowDestination {
+        override val route: String = "transactions/add"
+    }
+
     data object Assistant : FinFlowDestination {
         override val route: String = "assistant"
     }
