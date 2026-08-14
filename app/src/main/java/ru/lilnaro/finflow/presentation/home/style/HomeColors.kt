@@ -1,28 +1,79 @@
 package ru.lilnaro.finflow.presentation.home.style
 
-import androidx.compose.ui.graphics.Color
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowBackground
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowBackgroundSecondary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowBorder
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowExpense
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowGlowPrimary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowGlowSecondary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowGlowTertiary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowIncome
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowPrimary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowPrimaryLight
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowSecondary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowSurface
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowSurfaceElevated
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowSurfaceSoft
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowTextMuted
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowTextPrimary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowTextSecondary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowWarning
 
 internal object HomeColors {
 
-    val AppBackground = Color(0xFF171817)
+    val Background = FinFlowBackground
 
-    val MainCard = Color(0xFF2A2B29)
+    val BackgroundSecondary = FinFlowBackgroundSecondary
 
-    val ChartBackground = Color(0xFF181918)
+    val Surface = FinFlowSurface
 
-    val Border = Color(0xFF555753)
+    val SurfaceElevated = FinFlowSurfaceElevated
 
-    val PrimaryText = Color(0xFFF7F7F7)
+    val SurfaceSoft = FinFlowSurfaceSoft
 
-    val SecondaryText = Color(0xFFD5D7D3)
+    val Primary = FinFlowPrimary
 
-    val ChartLabel = Color(0xFF8E928C)
+    val PrimaryLight = FinFlowPrimaryLight
 
-    val InitialBar = Color(0xFF327DD7)
+    val Secondary = FinFlowSecondary
 
-    val CurrentBar = Color(0xFFA3575A)
+    val Income = FinFlowIncome
 
-    val Positive = Color(0xFF65C88A)
+    val Expense = FinFlowExpense
 
-    val Negative = Color(0xFFFF6067)
+    val Warning = FinFlowWarning
+
+    val TextPrimary = FinFlowTextPrimary
+
+    val TextSecondary = FinFlowTextSecondary
+
+    val TextMuted = FinFlowTextMuted
+
+    val Border = FinFlowBorder
+
+    val HeroGradientStart = FinFlowSurfaceElevated
+
+    val HeroGradientEnd = FinFlowBackgroundSecondary
+
+    val PrimarySoft = FinFlowPrimary.copy(
+        alpha = 0.14f,
+    )
+
+    val SecondarySoft = FinFlowSecondary.copy(
+        alpha = 0.12f,
+    )
+
+    val IncomeSoft = FinFlowIncome.copy(
+        alpha = 0.12f,
+    )
+
+    val ExpenseSoft = FinFlowExpense.copy(
+        alpha = 0.12f,
+    )
+
+    val GlowPrimary = FinFlowGlowPrimary
+
+    val GlowSecondary = FinFlowGlowSecondary
+
+    val GlowTertiary = FinFlowGlowTertiary
 }

@@ -1,17 +1,38 @@
 package ru.lilnaro.finflow.presentation.home
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import java.math.BigDecimal
+import java.math.MathContext
+import java.util.Calendar
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+import ru.lilnaro.finflow.domain.model.MonthSummary
+import ru.lilnaro.finflow.domain.model.result.CloseFinancialMonthResult
+import ru.lilnaro.finflow.domain.usecase.CloseFinancialMonthUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveActiveFinancialMonthUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveActiveMonthSummaryUseCase
 import ru.lilnaro.finflow.presentation.home.model.HomeAction
 import ru.lilnaro.finflow.presentation.home.model.HomeEffect
 import ru.lilnaro.finflow.presentation.home.model.HomeUiState
+import ru.lilnaro.finflow.presentation.home.model.HomeUiStatus
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel(
+    private val observeActiveFinancialMonthUseCase:
+    ObserveActiveFinancialMonthUseCase,
+    private val observeActiveMonthSummaryUseCase:
+    ObserveActiveMonthSummaryUseCase,
+    private val closeFinancialMonthUseCase:
+    CloseFinancialMonthUseCase,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         HomeUiState(),
@@ -27,7 +48,18 @@ class HomeViewModel : ViewModel() {
     val effect: Flow<HomeEffect> =
         _effect.receiveAsFlow()
 
-    fun onAction(action: HomeAction) {
+    private var observationJob: Job? = null
+
+    private var activeFinancialMonthId: Long? =
+        null
+
+    init {
+        observeHome()
+    }
+
+    fun onAction(
+        action: HomeAction,
+    ) {
         when (action) {
             HomeAction.TransactionsClicked -> {
                 _effect.trySend(
@@ -42,9 +74,7 @@ class HomeViewModel : ViewModel() {
             }
 
             HomeAction.NewMonthClicked -> {
-                _effect.trySend(
-                    HomeEffect.NavigateToNewMonth,
-                )
+                handleNewMonthClick()
             }
 
             HomeAction.ArchiveClicked -> {
@@ -52,6 +82,414 @@ class HomeViewModel : ViewModel() {
                     HomeEffect.NavigateToArchive,
                 )
             }
+
+            HomeAction.CloseMonthConfirmed -> {
+                closeActiveFinancialMonth()
+            }
+
+            HomeAction.CloseMonthCancelled -> {
+                cancelMonthClosing()
+            }
+
+            HomeAction.RetryClicked -> {
+                observeHome()
+            }
         }
+    }
+
+    private fun handleNewMonthClick() {
+        val currentState =
+            _uiState.value
+
+        if (currentState.isClosingMonth) {
+            return
+        }
+
+        val financialMonthId =
+            activeFinancialMonthId
+
+        if (financialMonthId == null) {
+            if (
+                currentState.status ==
+                HomeUiStatus.NO_ACTIVE_MONTH
+            ) {
+                _effect.trySend(
+                    HomeEffect.NavigateToNewMonth,
+                )
+            }
+
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isCloseMonthConfirmationVisible = true,
+                closeMonthErrorMessage = null,
+            )
+    }
+
+    private fun cancelMonthClosing() {
+        val currentState =
+            _uiState.value
+
+        if (currentState.isClosingMonth) {
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isCloseMonthConfirmationVisible = false,
+                closeMonthErrorMessage = null,
+            )
+    }
+
+    private fun closeActiveFinancialMonth() {
+        val currentState =
+            _uiState.value
+
+        if (
+            currentState.isClosingMonth ||
+            !currentState
+                .isCloseMonthConfirmationVisible
+        ) {
+            return
+        }
+
+        val financialMonthId =
+            activeFinancialMonthId
+
+        if (financialMonthId == null) {
+            _uiState.value =
+                currentState.copy(
+                    isCloseMonthConfirmationVisible =
+                        false,
+                    isClosingMonth = false,
+                    closeMonthErrorMessage = null,
+                )
+
+            _effect.trySend(
+                HomeEffect.NavigateToNewMonth,
+            )
+
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isClosingMonth = true,
+                closeMonthErrorMessage = null,
+            )
+
+        viewModelScope.launch {
+            val result =
+                try {
+                    closeFinancialMonthUseCase(
+                        financialMonthId =
+                            financialMonthId,
+                        closedAtMillis =
+                            System.currentTimeMillis(),
+                    )
+                } catch (_: Exception) {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isClosingMonth = false,
+                            closeMonthErrorMessage =
+                                "Не удалось завершить финансовый месяц.",
+                        )
+
+                    return@launch
+                }
+
+            handleCloseMonthResult(
+                result = result,
+            )
+        }
+    }
+
+    private suspend fun handleCloseMonthResult(
+        result: CloseFinancialMonthResult,
+    ) {
+        when (result) {
+            is CloseFinancialMonthResult.Success -> {
+                finishMonthClosingAndNavigate()
+            }
+
+            is CloseFinancialMonthResult
+            .FinancialMonthAlreadyClosed -> {
+                finishMonthClosingAndNavigate()
+            }
+
+            is CloseFinancialMonthResult
+            .FinancialMonthNotFound -> {
+                finishMonthClosingAndNavigate()
+            }
+
+            is CloseFinancialMonthResult
+            .InvalidFinancialMonthId -> {
+                showCloseMonthError(
+                    message =
+                        "Не удалось определить финансовый месяц.",
+                )
+            }
+
+            is CloseFinancialMonthResult
+            .InvalidClosedAtMillis -> {
+                showCloseMonthError(
+                    message =
+                        "Не удалось определить время завершения месяца.",
+                )
+            }
+
+            is CloseFinancialMonthResult
+            .ClosingTimeBeforeMonthStart -> {
+                showCloseMonthError(
+                    message =
+                        "Проверьте дату и время устройства: время завершения месяца некорректно.",
+                )
+            }
+        }
+    }
+
+    private suspend fun finishMonthClosingAndNavigate() {
+        activeFinancialMonthId = null
+
+        _uiState.value =
+            _uiState.value.copy(
+                isCloseMonthConfirmationVisible = false,
+                isClosingMonth = false,
+                closeMonthErrorMessage = null,
+            )
+
+        _effect.send(
+            HomeEffect.NavigateToNewMonth,
+        )
+    }
+
+    private fun showCloseMonthError(
+        message: String,
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                isClosingMonth = false,
+                closeMonthErrorMessage = message,
+            )
+    }
+
+    private fun observeHome() {
+        observationJob?.cancel()
+
+        activeFinancialMonthId = null
+
+        _uiState.value = HomeUiState(
+            status = HomeUiStatus.LOADING,
+            greeting = createGreeting(),
+        )
+
+        observationJob =
+            viewModelScope.launch {
+                combine(
+                    observeActiveFinancialMonthUseCase(),
+                    observeActiveMonthSummaryUseCase(),
+                ) { financialMonth, monthSummary ->
+                    financialMonth to monthSummary
+                }
+                    .catch {
+                        activeFinancialMonthId = null
+
+                        _uiState.value =
+                            HomeUiState(
+                                status =
+                                    HomeUiStatus.ERROR,
+                                greeting =
+                                    createGreeting(),
+                                errorMessage =
+                                    "Не удалось загрузить данные. Попробуйте ещё раз.",
+                            )
+                    }
+                    .collect {
+                            (
+                                financialMonth,
+                                monthSummary,
+                            ),
+                        ->
+
+                        activeFinancialMonthId =
+                            financialMonth?.id
+
+                        val previousState =
+                            _uiState.value
+
+                        val newState =
+                            when {
+                                financialMonth == null -> {
+                                    HomeUiState(
+                                        status =
+                                            HomeUiStatus
+                                                .NO_ACTIVE_MONTH,
+                                        greeting =
+                                            createGreeting(),
+                                    )
+                                }
+
+                                monthSummary == null ||
+                                        monthSummary
+                                            .financialMonthId !=
+                                        financialMonth.id -> {
+                                    HomeUiState(
+                                        status =
+                                            HomeUiStatus.LOADING,
+                                        greeting =
+                                            createGreeting(),
+                                        monthLabel =
+                                            createMonthLabel(
+                                                monthNumber =
+                                                    financialMonth
+                                                        .monthNumber,
+                                            ),
+                                    )
+                                }
+
+                                else -> {
+                                    createContentState(
+                                        monthNumber =
+                                            financialMonth
+                                                .monthNumber,
+                                        monthSummary =
+                                            monthSummary,
+                                    )
+                                }
+                            }
+
+                        _uiState.value =
+                            if (financialMonth == null) {
+                                newState
+                            } else {
+                                newState.copy(
+                                    isCloseMonthConfirmationVisible =
+                                        previousState
+                                            .isCloseMonthConfirmationVisible,
+                                    isClosingMonth =
+                                        previousState
+                                            .isClosingMonth,
+                                    closeMonthErrorMessage =
+                                        previousState
+                                            .closeMonthErrorMessage,
+                                )
+                            }
+                    }
+            }
+    }
+
+    private fun createContentState(
+        monthNumber: Int,
+        monthSummary: MonthSummary,
+    ): HomeUiState {
+        val currentBalance =
+            monthSummary.initialBudget
+                .add(monthSummary.totalIncome)
+                .subtract(monthSummary.totalExpense)
+
+        val balanceChange =
+            currentBalance.subtract(
+                monthSummary.initialBudget,
+            )
+
+        val balanceChangePercent =
+            calculatePercent(
+                value = balanceChange,
+                base = monthSummary.initialBudget,
+            )
+
+        val budgetRemainingPercent =
+            calculatePercent(
+                value = currentBalance,
+                base = monthSummary.initialBudget,
+            )
+
+        return HomeUiState(
+            status = HomeUiStatus.CONTENT,
+            greeting = createGreeting(),
+            monthLabel = createMonthLabel(
+                monthNumber = monthNumber,
+            ),
+            initialBudget =
+                monthSummary.initialBudget,
+            currentBalance = currentBalance,
+            totalIncome = monthSummary.totalIncome,
+            totalExpense = monthSummary.totalExpense,
+            balanceChangePercent =
+                balanceChangePercent,
+            budgetRemainingPercent =
+                budgetRemainingPercent,
+            errorMessage = null,
+        )
+    }
+
+    private fun calculatePercent(
+        value: BigDecimal,
+        base: BigDecimal,
+    ): Double {
+        if (
+            base.compareTo(
+                BigDecimal.ZERO,
+            ) == 0
+        ) {
+            return 0.0
+        }
+
+        return value
+            .divide(
+                base,
+                MathContext.DECIMAL64,
+            )
+            .multiply(
+                PERCENT_MULTIPLIER,
+            )
+            .toDouble()
+    }
+
+    private fun createGreeting(): String {
+        val currentHour =
+            Calendar.getInstance().get(
+                Calendar.HOUR_OF_DAY,
+            )
+
+        return when (currentHour) {
+            in 5..11 -> "Доброе утро"
+            in 12..17 -> "Добрый день"
+            in 18..22 -> "Добрый вечер"
+            else -> "Доброй ночи"
+        }
+    }
+
+    private fun createMonthLabel(
+        monthNumber: Int,
+    ): String {
+        return MONTH_NAMES.getOrElse(
+            index = monthNumber - 1,
+        ) {
+            "Месяц $monthNumber"
+        }
+    }
+
+    private companion object {
+
+        val PERCENT_MULTIPLIER =
+            BigDecimal("100")
+
+        val MONTH_NAMES = listOf(
+            "Январь",
+            "Февраль",
+            "Март",
+            "Апрель",
+            "Май",
+            "Июнь",
+            "Июль",
+            "Август",
+            "Сентябрь",
+            "Октябрь",
+            "Ноябрь",
+            "Декабрь",
+        )
     }
 }
