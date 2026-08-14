@@ -3,15 +3,24 @@ package ru.lilnaro.finflow.presentation.home.model
 import java.math.BigDecimal
 
 data class HomeUiState(
-    val status: HomeUiStatus = HomeUiStatus.LOADING,
+    val status: HomeUiStatus =
+        HomeUiStatus.LOADING,
     val greeting: String = "",
     val monthLabel: String = "",
-    val initialBudget: BigDecimal = BigDecimal.ZERO,
-    val currentBalance: BigDecimal = BigDecimal.ZERO,
-    val totalIncome: BigDecimal = BigDecimal.ZERO,
-    val totalExpense: BigDecimal = BigDecimal.ZERO,
+    val initialBudget: BigDecimal =
+        BigDecimal.ZERO,
+    val currentBalance: BigDecimal =
+        BigDecimal.ZERO,
+    val totalIncome: BigDecimal =
+        BigDecimal.ZERO,
+    val totalExpense: BigDecimal =
+        BigDecimal.ZERO,
     val balanceChangePercent: Double = 0.0,
     val budgetRemainingPercent: Double = 0.0,
+    val isCloseMonthConfirmationVisible:
+    Boolean = false,
+    val isClosingMonth: Boolean = false,
+    val closeMonthErrorMessage: String? = null,
     val errorMessage: String? = null,
 )
 

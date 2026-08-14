@@ -18,6 +18,7 @@ import ru.lilnaro.finflow.domain.usecase.ObserveActiveMonthSummaryUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveArchivedFinancialMonthsUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveCategoriesByTypeUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveTransactionsByMonthUseCase
+import ru.lilnaro.finflow.presentation.archive.ArchiveViewModel
 import ru.lilnaro.finflow.presentation.home.HomeViewModel
 import ru.lilnaro.finflow.presentation.newmonth.NewMonthViewModel
 import ru.lilnaro.finflow.presentation.transactions.TransactionsViewModel
@@ -135,6 +136,8 @@ val appModule = module {
                 get(),
             observeActiveMonthSummaryUseCase =
                 get(),
+            closeFinancialMonthUseCase =
+                get(),
         )
     }
 
@@ -167,6 +170,15 @@ val appModule = module {
     viewModel {
         NewMonthViewModel(
             createFinancialMonthUseCase =
+                get(),
+            observeArchivedFinancialMonthsUseCase =
+                get(),
+        )
+    }
+
+    viewModel {
+        ArchiveViewModel(
+            observeArchivedFinancialMonthsUseCase =
                 get(),
         )
     }

@@ -10,7 +10,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import ru.lilnaro.finflow.presentation.archive.ArchiveScreen
+import ru.lilnaro.finflow.presentation.archive.ArchiveRoute
 import ru.lilnaro.finflow.presentation.assistant.AssistantScreen
 import ru.lilnaro.finflow.presentation.home.HomeRoute
 import ru.lilnaro.finflow.presentation.newmonth.NewMonthRoute
@@ -23,7 +23,8 @@ fun FinFlowNavHost(
     navController: NavHostController =
         rememberNavController(),
 ) {
-    var transactionsResultMessage by rememberSaveable {
+    var transactionsResultMessage by
+    rememberSaveable {
         mutableStateOf<String?>(null)
     }
 
@@ -143,8 +144,8 @@ fun FinFlowNavHost(
                 FinFlowDestination
                     .Archive.route,
         ) {
-            ArchiveScreen(
-                onBackClick = {
+            ArchiveRoute(
+                onNavigateBack = {
                     navController.popBackStack()
                 },
             )

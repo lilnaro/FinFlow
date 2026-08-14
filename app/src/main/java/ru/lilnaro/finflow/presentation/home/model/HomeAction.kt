@@ -10,5 +10,9 @@ sealed interface HomeAction {
 
     data object ArchiveClicked : HomeAction
 
+    data object CloseMonthConfirmed : HomeAction
+
+    data object CloseMonthCancelled : HomeAction
+
     data object RetryClicked : HomeAction
 }

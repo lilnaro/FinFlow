@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -155,6 +157,11 @@ fun HomeScreen(
                                                 HomeAction.NewMonthClicked,
                                             )
                                         },
+                                        onOpenArchive = {
+                                            onAction(
+                                                HomeAction.ArchiveClicked,
+                                            )
+                                        },
                                     )
                                 }
 
@@ -174,7 +181,122 @@ fun HomeScreen(
                 }
             }
         }
+
+        if (uiState.isCloseMonthConfirmationVisible) {
+            CloseMonthConfirmationDialog(
+                isClosing = uiState.isClosingMonth,
+                errorMessage = uiState.closeMonthErrorMessage,
+                onConfirm = {
+                    onAction(
+                        HomeAction.CloseMonthConfirmed,
+                    )
+                },
+                onCancel = {
+                    onAction(
+                        HomeAction.CloseMonthCancelled,
+                    )
+                },
+            )
+        }
     }
+}
+
+@Composable
+private fun CloseMonthConfirmationDialog(
+    isClosing: Boolean,
+    errorMessage: String?,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = {
+            if (!isClosing) {
+                onCancel()
+            }
+        },
+        title = {
+            Text(
+                text = "Завершить текущий месяц?",
+                color = HomeColors.TextPrimary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text =
+                        "Чтобы начать новый финансовый месяц, текущий нужно завершить. Все его транзакции сохранятся и будут доступны в архиве.",
+                    color = HomeColors.TextSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+
+                if (errorMessage != null) {
+                    Spacer(
+                        modifier = Modifier.height(12.dp),
+                    )
+
+                    Text(
+                        text = errorMessage,
+                        color = HomeColors.Expense,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !isClosing,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = HomeColors.Warning,
+                    disabledContentColor =
+                        HomeColors.TextMuted,
+                ),
+            ) {
+                if (isClosing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = HomeColors.Warning,
+                        strokeWidth = 2.dp,
+                    )
+
+                    Spacer(
+                        modifier = Modifier.size(8.dp),
+                    )
+
+                    Text(
+                        text = "Завершаем...",
+                    )
+                } else {
+                    Text(
+                        text = "Завершить и продолжить",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onCancel,
+                enabled = !isClosing,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = HomeColors.TextSecondary,
+                    disabledContentColor =
+                        HomeColors.TextMuted,
+                ),
+            ) {
+                Text(
+                    text = "Отмена",
+                )
+            }
+        },
+        containerColor = HomeColors.SurfaceElevated,
+        titleContentColor = HomeColors.TextPrimary,
+        textContentColor = HomeColors.TextSecondary,
+        shape = MaterialTheme.shapes.extraLarge,
+    )
 }
 
 @Composable
@@ -716,6 +838,7 @@ private fun HomeLoadingState() {
 @Composable
 private fun NoActiveMonthState(
     onCreateMonth: () -> Unit,
+    onOpenArchive: () -> Unit,
 ) {
     StateCard {
         Surface(
@@ -766,6 +889,22 @@ private fun NoActiveMonthState(
             text = "Создать месяц",
             onClick = onCreateMonth,
         )
+
+        Spacer(
+            modifier = Modifier.height(8.dp),
+        )
+
+        TextButton(
+            onClick = onOpenArchive,
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = HomeColors.PrimaryLight,
+            ),
+        ) {
+            Text(
+                text = "Открыть архив",
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 

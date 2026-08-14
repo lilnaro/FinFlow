@@ -6,13 +6,16 @@ import java.math.BigDecimal
 import java.util.Calendar
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import ru.lilnaro.finflow.domain.model.FinancialMonth
 import ru.lilnaro.finflow.domain.model.result.CreateFinancialMonthResult
 import ru.lilnaro.finflow.domain.usecase.CreateFinancialMonthUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveArchivedFinancialMonthsUseCase
 import ru.lilnaro.finflow.presentation.newmonth.model.NewMonthAction
 import ru.lilnaro.finflow.presentation.newmonth.model.NewMonthEffect
 import ru.lilnaro.finflow.presentation.newmonth.model.NewMonthUiState
@@ -20,6 +23,8 @@ import ru.lilnaro.finflow.presentation.newmonth.model.NewMonthUiState
 class NewMonthViewModel(
     private val createFinancialMonthUseCase:
     CreateFinancialMonthUseCase,
+    private val observeArchivedFinancialMonthsUseCase:
+    ObserveArchivedFinancialMonthsUseCase,
 ) : ViewModel() {
 
     private val currentCalendar =
@@ -40,12 +45,9 @@ class NewMonthViewModel(
             NewMonthUiState(
                 year = currentYear,
                 monthNumber = currentMonthNumber,
-                monthLabel = createMonthLabel(
-                    monthNumber =
-                        currentMonthNumber,
-                    year =
-                        currentYear,
-                ),
+                monthLabel =
+                    "Определяем период…",
+                isPeriodLoading = true,
             ),
         )
 
@@ -59,6 +61,10 @@ class NewMonthViewModel(
 
     val effect: Flow<NewMonthEffect> =
         _effect.receiveAsFlow()
+
+    init {
+        resolveSuggestedPeriod()
+    }
 
     fun onAction(
         action: NewMonthAction,
@@ -78,6 +84,104 @@ class NewMonthViewModel(
                 createFinancialMonth()
             }
         }
+    }
+
+    private fun resolveSuggestedPeriod() {
+        viewModelScope.launch {
+            val suggestedPeriod =
+                try {
+                    val archivedMonths =
+                        observeArchivedFinancialMonthsUseCase()
+                            .first()
+
+                    calculateSuggestedPeriod(
+                        archivedMonths =
+                            archivedMonths,
+                    )
+                } catch (_: Exception) {
+                    _effect.send(
+                        NewMonthEffect.ShowMessage(
+                            message =
+                                "Не удалось проверить историю месяцев. Используем текущий период.",
+                        ),
+                    )
+
+                    FinancialMonthPeriod(
+                        year = currentYear,
+                        monthNumber =
+                            currentMonthNumber,
+                    )
+                }
+
+            _uiState.value =
+                _uiState.value.copy(
+                    year = suggestedPeriod.year,
+                    monthNumber =
+                        suggestedPeriod.monthNumber,
+                    monthLabel =
+                        createMonthLabel(
+                            monthNumber =
+                                suggestedPeriod.monthNumber,
+                            year =
+                                suggestedPeriod.year,
+                        ),
+                    isPeriodLoading = false,
+                )
+        }
+    }
+
+    private fun calculateSuggestedPeriod(
+        archivedMonths: List<FinancialMonth>,
+    ): FinancialMonthPeriod {
+        val currentPeriod =
+            FinancialMonthPeriod(
+                year = currentYear,
+                monthNumber =
+                    currentMonthNumber,
+            )
+
+        val latestArchivedMonth =
+            archivedMonths.maxWithOrNull(
+                compareBy<FinancialMonth>(
+                    { financialMonth ->
+                        financialMonth.year
+                    },
+                    { financialMonth ->
+                        financialMonth.monthNumber
+                    },
+                ),
+            ) ?: return currentPeriod
+
+        val nextAfterLatest =
+            if (
+                latestArchivedMonth.monthNumber == 12
+            ) {
+                FinancialMonthPeriod(
+                    year =
+                        latestArchivedMonth.year + 1,
+                    monthNumber = 1,
+                )
+            } else {
+                FinancialMonthPeriod(
+                    year = latestArchivedMonth.year,
+                    monthNumber =
+                        latestArchivedMonth.monthNumber + 1,
+                )
+            }
+
+        return if (
+            nextAfterLatest.toPeriodIndex() >
+            currentPeriod.toPeriodIndex()
+        ) {
+            nextAfterLatest
+        } else {
+            currentPeriod
+        }
+    }
+
+    private fun FinancialMonthPeriod.toPeriodIndex(): Long {
+        return year.toLong() * MONTHS_IN_YEAR +
+                monthNumber
     }
 
     private fun handleBackClick() {
@@ -146,7 +250,10 @@ class NewMonthViewModel(
         val currentState =
             _uiState.value
 
-        if (currentState.isSaving) {
+        if (
+            currentState.isSaving ||
+            currentState.isPeriodLoading
+        ) {
             return
         }
 
@@ -413,12 +520,19 @@ class NewMonthViewModel(
         return "$monthName $year"
     }
 
+    private data class FinancialMonthPeriod(
+        val year: Int,
+        val monthNumber: Int,
+    )
+
     private data class BudgetValidationResult(
         val initialBudget: BigDecimal?,
         val errorMessage: String?,
     )
 
     private companion object {
+
+        const val MONTHS_IN_YEAR = 12L
 
         val MAX_INITIAL_BUDGET =
             BigDecimal("999999999999.99")

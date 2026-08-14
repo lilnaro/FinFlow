@@ -6,6 +6,7 @@ data class NewMonthUiState(
     val monthLabel: String = "",
     val initialBudgetInput: String = "",
     val budgetError: String? = null,
+    val isPeriodLoading: Boolean = true,
     val isSaving: Boolean = false,
 ) {
 
@@ -13,6 +14,7 @@ data class NewMonthUiState(
         get() {
             return initialBudgetInput.isNotBlank() &&
                     budgetError == null &&
+                    !isPeriodLoading &&
                     !isSaving
         }
 }
