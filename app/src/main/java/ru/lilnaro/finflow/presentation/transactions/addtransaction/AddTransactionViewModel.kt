@@ -3,7 +3,6 @@ package ru.lilnaro.finflow.presentation.transactions.addtransaction
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.math.BigDecimal
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -12,9 +11,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import ru.lilnaro.finflow.domain.model.FinancialMonth
@@ -113,7 +109,6 @@ class AddTransactionViewModel(
         }
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeFormData() {
         observationJob?.cancel()
 
@@ -130,34 +125,37 @@ class AddTransactionViewModel(
                 combine(
                     observeActiveFinancialMonthUseCase(),
                     selectedType,
-                ) { financialMonth, type ->
-                    financialMonth to type
-                }
-                    .flatMapLatest {
-                            (financialMonth, type) ->
+                    observeCategoriesByTypeUseCase(
+                        type = TransactionType.EXPENSE,
+                    ),
+                    observeCategoriesByTypeUseCase(
+                        type = TransactionType.INCOME,
+                    ),
+                ) {
+                        financialMonth,
+                        type,
+                        expenseCategories,
+                        incomeCategories,
+                    ->
 
-                        if (financialMonth == null) {
-                            flowOf(
-                                AddTransactionSnapshot(
-                                    financialMonth = null,
-                                    type = type,
-                                    categories = emptyList(),
-                                ),
-                            )
-                        } else {
-                            observeCategoriesByTypeUseCase(
-                                type = type,
-                            ).map { categories ->
-                                AddTransactionSnapshot(
-                                    financialMonth =
-                                        financialMonth,
-                                    type = type,
-                                    categories =
-                                        categories,
-                                )
+                    val categories =
+                        when (type) {
+                            TransactionType.EXPENSE -> {
+                                expenseCategories
+                            }
+
+                            TransactionType.INCOME -> {
+                                incomeCategories
                             }
                         }
-                    }
+
+                    AddTransactionSnapshot(
+                        financialMonth =
+                            financialMonth,
+                        type = type,
+                        categories = categories,
+                    )
+                }
                     .catch {
                         activeFinancialMonthId = null
 
@@ -239,7 +237,6 @@ class AddTransactionViewModel(
                     validSelectedCategoryId,
                 categoryError = null,
                 errorMessage = null,
-                isSaving = false,
             )
     }
 
@@ -250,15 +247,12 @@ class AddTransactionViewModel(
             return
         }
 
-        selectedType.value = type
-
         _uiState.value =
             _uiState.value.copy(
-                type = type,
-                categories = emptyList(),
-                selectedCategoryId = null,
                 categoryError = null,
             )
+
+        selectedType.value = type
     }
 
     private fun changeAmount(

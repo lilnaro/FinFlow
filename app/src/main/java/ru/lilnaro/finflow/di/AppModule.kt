@@ -4,6 +4,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import ru.lilnaro.finflow.data.local.database.FinFlowDatabase
+import ru.lilnaro.finflow.data.local.initializer.DefaultTransactionCategoriesInitializer
 import ru.lilnaro.finflow.data.repository.FinanceRepositoryImpl
 import ru.lilnaro.finflow.domain.repository.FinanceRepository
 import ru.lilnaro.finflow.domain.usecase.AddCategoryUseCase
@@ -43,6 +44,12 @@ val appModule = module {
     single {
         get<FinFlowDatabase>()
             .transactionCategoryDao()
+    }
+
+    single {
+        DefaultTransactionCategoriesInitializer(
+            transactionCategoryDao = get(),
+        )
     }
 
     single<FinanceRepository> {
