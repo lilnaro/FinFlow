@@ -10,57 +10,68 @@ import ru.lilnaro.finflow.presentation.archive.ArchiveScreen
 import ru.lilnaro.finflow.presentation.assistant.AssistantScreen
 import ru.lilnaro.finflow.presentation.home.HomeRoute
 import ru.lilnaro.finflow.presentation.newmonth.NewMonthScreen
-import ru.lilnaro.finflow.presentation.transactions.TransactionsScreen
+import ru.lilnaro.finflow.presentation.transactions.TransactionsRoute
 
 @Composable
 fun FinFlowNavHost(
     modifier: Modifier = Modifier,
-    navController: NavHostController = rememberNavController(),
+    navController: NavHostController =
+        rememberNavController(),
 ) {
     NavHost(
         navController = navController,
-        startDestination = FinFlowDestination.Home.route,
+        startDestination =
+            FinFlowDestination.Home.route,
         modifier = modifier,
     ) {
         composable(
-            route = FinFlowDestination.Home.route,
+            route =
+                FinFlowDestination.Home.route,
         ) {
             HomeRoute(
                 onNavigateToTransactions = {
                     navController.navigate(
-                        FinFlowDestination.Transactions.route,
+                        FinFlowDestination
+                            .Transactions.route,
                     )
                 },
                 onNavigateToAssistant = {
                     navController.navigate(
-                        FinFlowDestination.Assistant.route,
+                        FinFlowDestination
+                            .Assistant.route,
                     )
                 },
                 onNavigateToNewMonth = {
                     navController.navigate(
-                        FinFlowDestination.NewMonth.route,
+                        FinFlowDestination
+                            .NewMonth.route,
                     )
                 },
                 onNavigateToArchive = {
                     navController.navigate(
-                        FinFlowDestination.Archive.route,
+                        FinFlowDestination
+                            .Archive.route,
                     )
                 },
             )
         }
 
         composable(
-            route = FinFlowDestination.Transactions.route,
+            route =
+                FinFlowDestination
+                    .Transactions.route,
         ) {
-            TransactionsScreen(
-                onBackClick = {
+            TransactionsRoute(
+                onNavigateBack = {
                     navController.popBackStack()
                 },
             )
         }
 
         composable(
-            route = FinFlowDestination.Assistant.route,
+            route =
+                FinFlowDestination
+                    .Assistant.route,
         ) {
             AssistantScreen(
                 onBackClick = {
@@ -70,7 +81,9 @@ fun FinFlowNavHost(
         }
 
         composable(
-            route = FinFlowDestination.NewMonth.route,
+            route =
+                FinFlowDestination
+                    .NewMonth.route,
         ) {
             NewMonthScreen(
                 onBackClick = {
@@ -80,7 +93,9 @@ fun FinFlowNavHost(
         }
 
         composable(
-            route = FinFlowDestination.Archive.route,
+            route =
+                FinFlowDestination
+                    .Archive.route,
         ) {
             ArchiveScreen(
                 onBackClick = {
