@@ -19,6 +19,7 @@ import ru.lilnaro.finflow.domain.usecase.ObserveCategoriesByTypeUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveTransactionsByMonthUseCase
 import ru.lilnaro.finflow.presentation.home.HomeViewModel
 import ru.lilnaro.finflow.presentation.transactions.TransactionsViewModel
+import ru.lilnaro.finflow.presentation.transactions.addtransaction.AddTransactionViewModel
 
 val appModule = module {
 
@@ -29,15 +30,18 @@ val appModule = module {
     }
 
     single {
-        get<FinFlowDatabase>().financialMonthDao()
+        get<FinFlowDatabase>()
+            .financialMonthDao()
     }
 
     single {
-        get<FinFlowDatabase>().transactionDao()
+        get<FinFlowDatabase>()
+            .transactionDao()
     }
 
     single {
-        get<FinFlowDatabase>().transactionCategoryDao()
+        get<FinFlowDatabase>()
+            .transactionCategoryDao()
     }
 
     single<FinanceRepository> {
@@ -108,26 +112,47 @@ val appModule = module {
 
     factory {
         ObserveActiveMonthSummaryUseCase(
-            observeActiveFinancialMonthUseCase = get(),
-            observeTransactionsByMonthUseCase = get(),
-            calculateMonthSummaryUseCase = get(),
+            observeActiveFinancialMonthUseCase =
+                get(),
+            observeTransactionsByMonthUseCase =
+                get(),
+            calculateMonthSummaryUseCase =
+                get(),
         )
     }
 
     viewModel {
         HomeViewModel(
-            observeActiveFinancialMonthUseCase = get(),
-            observeActiveMonthSummaryUseCase = get(),
+            observeActiveFinancialMonthUseCase =
+                get(),
+            observeActiveMonthSummaryUseCase =
+                get(),
         )
     }
 
     viewModel {
         TransactionsViewModel(
-            observeActiveFinancialMonthUseCase = get(),
-            observeTransactionsByMonthUseCase = get(),
-            observeCategoriesByTypeUseCase = get(),
-            calculateMonthSummaryUseCase = get(),
-            deleteTransactionsUseCase = get(),
+            observeActiveFinancialMonthUseCase =
+                get(),
+            observeTransactionsByMonthUseCase =
+                get(),
+            observeCategoriesByTypeUseCase =
+                get(),
+            calculateMonthSummaryUseCase =
+                get(),
+            deleteTransactionsUseCase =
+                get(),
+        )
+    }
+
+    viewModel {
+        AddTransactionViewModel(
+            observeActiveFinancialMonthUseCase =
+                get(),
+            observeCategoriesByTypeUseCase =
+                get(),
+            addTransactionUseCase =
+                get(),
         )
     }
 }
