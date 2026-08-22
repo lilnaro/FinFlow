@@ -18,6 +18,8 @@ data class FinancialCategoryBreakdown(
     val categoryId: Long,
     val categoryName: String?,
     val isCustomCategory: Boolean,
+    val parentCategoryId: Long?,
+    val parentCategoryName: String?,
     val amount: BigDecimal,
     val transactionCount: Int,
     val sharePercent: Double,
@@ -30,6 +32,8 @@ data class FinancialReportTransaction(
     val categoryId: Long,
     val categoryName: String?,
     val isCustomCategory: Boolean,
+    val parentCategoryId: Long?,
+    val parentCategoryName: String?,
     val note: String,
     val createdAtMillis: Long,
 )

@@ -10,6 +10,7 @@ import ru.lilnaro.finflow.domain.repository.FinanceRepository
 import ru.lilnaro.finflow.domain.usecase.AddCategoryUseCase
 import ru.lilnaro.finflow.domain.usecase.AddTransactionUseCase
 import ru.lilnaro.finflow.domain.usecase.CalculateMonthSummaryUseCase
+import ru.lilnaro.finflow.domain.usecase.BuildFinancialAnalysisContextUseCase
 import ru.lilnaro.finflow.domain.usecase.CloseFinancialMonthUseCase
 import ru.lilnaro.finflow.domain.usecase.CreateFinancialMonthUseCase
 import ru.lilnaro.finflow.domain.usecase.DeleteTransactionsUseCase
@@ -17,6 +18,7 @@ import ru.lilnaro.finflow.domain.usecase.ObserveActiveFinancialMonthUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveActiveMonthSummaryUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveArchivedFinancialMonthsUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveCategoriesByTypeUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveFinancialAnalysisContextUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveFinancialMonthReportUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveTransactionsByMonthUseCase
 import ru.lilnaro.finflow.presentation.archive.ArchiveMonthDetailsViewModel
@@ -129,6 +131,20 @@ val appModule = module {
             observeCategoriesByTypeUseCase =
                 get(),
             calculateMonthSummaryUseCase =
+                get(),
+        )
+    }
+
+    factory {
+        BuildFinancialAnalysisContextUseCase()
+    }
+
+    factory {
+        ObserveFinancialAnalysisContextUseCase(
+            financeRepository = get(),
+            observeFinancialMonthReportUseCase =
+                get(),
+            buildFinancialAnalysisContextUseCase =
                 get(),
         )
     }
