@@ -29,6 +29,8 @@ data class FinancialAnalysisMonth(
     List<FinancialAnalysisCategory>,
     val incomeBreakdown:
     List<FinancialAnalysisCategory>,
+    val transactions:
+    List<FinancialAnalysisTransaction>,
 )
 
 data class FinancialAnalysisCategory(
@@ -39,6 +41,17 @@ data class FinancialAnalysisCategory(
     val amount: BigDecimal,
     val transactionCount: Int,
     val sharePercent: Double,
+)
+
+data class FinancialAnalysisTransaction(
+    val transactionId: Long,
+    val type: TransactionType,
+    val amount: BigDecimal,
+    val categoryId: Long,
+    val categoryName: String?,
+    val isCustomCategory: Boolean,
+    val parentCategoryName: String?,
+    val createdAtMillis: Long,
 )
 
 data class FinancialMonthChange(

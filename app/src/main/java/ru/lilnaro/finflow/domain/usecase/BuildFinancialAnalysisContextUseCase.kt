@@ -7,9 +7,11 @@ import ru.lilnaro.finflow.domain.model.FinancialAnalysisCategory
 import ru.lilnaro.finflow.domain.model.FinancialAnalysisConfidence
 import ru.lilnaro.finflow.domain.model.FinancialAnalysisContext
 import ru.lilnaro.finflow.domain.model.FinancialAnalysisMonth
+import ru.lilnaro.finflow.domain.model.FinancialAnalysisTransaction
 import ru.lilnaro.finflow.domain.model.FinancialCategoryBreakdown
 import ru.lilnaro.finflow.domain.model.FinancialMonthChange
 import ru.lilnaro.finflow.domain.model.FinancialMonthReport
+import ru.lilnaro.finflow.domain.model.FinancialReportTransaction
 import ru.lilnaro.finflow.domain.model.FinancialSemanticTransactionContext
 
 class BuildFinancialAnalysisContextUseCase {
@@ -19,12 +21,14 @@ class BuildFinancialAnalysisContextUseCase {
     ): FinancialAnalysisContext {
         val orderedReports =
             reports.sortedWith(
-                compareBy<FinancialMonthReport> {
-                        report ->
-                    report.financialMonth.year
-                }.thenBy { report ->
-                    report.financialMonth.monthNumber
-                },
+                compareBy<FinancialMonthReport>(
+                    { report ->
+                        report.financialMonth.year
+                    },
+                    { report ->
+                        report.financialMonth.monthNumber
+                    },
+                ),
             )
 
         val months =
@@ -151,6 +155,10 @@ class BuildFinancialAnalysisContextUseCase {
                 incomeBreakdown.map { category ->
                     category.toAnalysisCategory()
                 },
+            transactions =
+                transactions.map { transaction ->
+                    transaction.toAnalysisTransaction()
+                },
         )
     }
 
@@ -168,6 +176,24 @@ class BuildFinancialAnalysisContextUseCase {
             transactionCount =
                 transactionCount,
             sharePercent = sharePercent,
+        )
+    }
+
+    private fun FinancialReportTransaction
+            .toAnalysisTransaction():
+            FinancialAnalysisTransaction {
+        return FinancialAnalysisTransaction(
+            transactionId = id,
+            type = type,
+            amount = amount,
+            categoryId = categoryId,
+            categoryName = categoryName,
+            isCustomCategory =
+                isCustomCategory,
+            parentCategoryName =
+                parentCategoryName,
+            createdAtMillis =
+                createdAtMillis,
         )
     }
 
