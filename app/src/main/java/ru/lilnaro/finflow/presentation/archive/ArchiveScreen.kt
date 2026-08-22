@@ -55,7 +55,7 @@ import java.util.Date
 import java.util.Locale
 import ru.lilnaro.finflow.domain.model.TransactionType
 import ru.lilnaro.finflow.presentation.archive.model.ArchiveAction
-import ru.lilnaro.finflow.presentation.archive.model.ArchiveExpenseCategoryUiModel
+import ru.lilnaro.finflow.presentation.archive.model.ArchiveCategoryBreakdownUiModel
 import ru.lilnaro.finflow.presentation.archive.model.ArchiveMonthDetailsAction
 import ru.lilnaro.finflow.presentation.archive.model.ArchiveMonthDetailsUiState
 import ru.lilnaro.finflow.presentation.archive.model.ArchiveMonthDetailsUiStatus
@@ -444,13 +444,34 @@ private fun ArchiveMonthDetailsContent(
         }
 
         item(
+            key = "income_breakdown",
+        ) {
+            ArchiveCategoryBreakdownCard(
+                title = "Структура доходов",
+                totalLabel = "Всего доходов",
+                emptyMessage =
+                    "В этом месяце не было доходов.",
+                categories =
+                    uiState.incomeBreakdown,
+                totalAmount =
+                    uiState.totalIncome,
+                type = TransactionType.INCOME,
+            )
+        }
+
+        item(
             key = "expense_breakdown",
         ) {
-            ArchiveExpenseBreakdownCard(
+            ArchiveCategoryBreakdownCard(
+                title = "Структура расходов",
+                totalLabel = "Всего расходов",
+                emptyMessage =
+                    "В этом месяце не было расходов.",
                 categories =
                     uiState.expenseBreakdown,
-                totalExpense =
+                totalAmount =
                     uiState.totalExpense,
+                type = TransactionType.EXPENSE,
             )
         }
 
@@ -706,10 +727,20 @@ private fun ArchiveMonthOverviewCard(
 }
 
 @Composable
-private fun ArchiveExpenseBreakdownCard(
-    categories: List<ArchiveExpenseCategoryUiModel>,
-    totalExpense: BigDecimal,
+private fun ArchiveCategoryBreakdownCard(
+    title: String,
+    totalLabel: String,
+    emptyMessage: String,
+    categories: List<ArchiveCategoryBreakdownUiModel>,
+    totalAmount: BigDecimal,
+    type: TransactionType,
 ) {
+    val accent =
+        when (type) {
+            TransactionType.INCOME -> FinFlowIncome
+            TransactionType.EXPENSE -> FinFlowExpense
+        }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color =
@@ -732,7 +763,7 @@ private fun ArchiveExpenseBreakdownCard(
                 .padding(18.dp),
         ) {
             Text(
-                text = "Структура расходов",
+                text = title,
                 color = FinFlowTextPrimary,
                 style =
                     MaterialTheme.typography
@@ -746,7 +777,7 @@ private fun ArchiveExpenseBreakdownCard(
 
             Text(
                 text =
-                    "Всего расходов: ${totalExpense.toRubleText()}",
+                    "$totalLabel: ${totalAmount.toRubleText()}",
                 color = FinFlowTextMuted,
                 style =
                     MaterialTheme.typography
@@ -759,8 +790,7 @@ private fun ArchiveExpenseBreakdownCard(
 
             if (categories.isEmpty()) {
                 Text(
-                    text =
-                        "В этом месяце не было расходов.",
+                    text = emptyMessage,
                     color = FinFlowTextSecondary,
                     style =
                         MaterialTheme.typography
@@ -771,8 +801,10 @@ private fun ArchiveExpenseBreakdownCard(
                         index,
                         category,
                     ->
-                    ArchiveExpenseCategoryRow(
+                    ArchiveCategoryBreakdownRow(
                         category = category,
+                        type = type,
+                        accent = accent,
                     )
 
                     if (index != categories.lastIndex) {
@@ -788,8 +820,10 @@ private fun ArchiveExpenseBreakdownCard(
 }
 
 @Composable
-private fun ArchiveExpenseCategoryRow(
-    category: ArchiveExpenseCategoryUiModel,
+private fun ArchiveCategoryBreakdownRow(
+    category: ArchiveCategoryBreakdownUiModel,
+    type: TransactionType,
+    accent: Color,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -826,8 +860,10 @@ private fun ArchiveExpenseCategoryRow(
             Text(
                 text =
                     category.amount
-                        .toExpenseText(),
-                color = FinFlowExpense,
+                        .toSignedRubleText(
+                            type = type,
+                        ),
+                color = accent,
                 style =
                     MaterialTheme.typography
                         .bodyMedium,
@@ -862,7 +898,7 @@ private fun ArchiveExpenseCategoryRow(
                     )
                     .height(5.dp)
                     .background(
-                        FinFlowExpense.copy(
+                        accent.copy(
                             alpha = 0.72f,
                         ),
                         CircleShape,

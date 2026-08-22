@@ -28,7 +28,9 @@ data class ArchiveMonthDetailsUiState(
     val startedAtMillis: Long = 0L,
     val closedAtMillis: Long? = null,
     val expenseBreakdown:
-    List<ArchiveExpenseCategoryUiModel> = emptyList(),
+    List<ArchiveCategoryBreakdownUiModel> = emptyList(),
+    val incomeBreakdown:
+    List<ArchiveCategoryBreakdownUiModel> = emptyList(),
     val transactions:
     List<ArchiveMonthTransactionUiModel> = emptyList(),
     val errorMessage: String? = null,
@@ -41,7 +43,7 @@ enum class ArchiveMonthDetailsUiStatus {
     ERROR,
 }
 
-data class ArchiveExpenseCategoryUiModel(
+data class ArchiveCategoryBreakdownUiModel(
     val categoryId: Long,
     val categoryName: String,
     val amount: BigDecimal,
