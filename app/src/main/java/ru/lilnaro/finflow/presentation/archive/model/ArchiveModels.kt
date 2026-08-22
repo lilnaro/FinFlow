@@ -7,11 +7,19 @@ sealed interface ArchiveAction {
     data object BackClicked : ArchiveAction
 
     data object RetryClicked : ArchiveAction
+
+    data class MonthClicked(
+        val monthId: Long,
+    ) : ArchiveAction
 }
 
 sealed interface ArchiveEffect {
 
     data object NavigateBack : ArchiveEffect
+
+    data class NavigateToMonthDetails(
+        val monthId: Long,
+    ) : ArchiveEffect
 }
 
 data class ArchiveUiState(

@@ -139,6 +139,13 @@ fun ArchiveScreen(
                             ArchiveContent(
                                 months =
                                     uiState.months,
+                                onMonthClick = { monthId ->
+                                    onAction(
+                                        ArchiveAction.MonthClicked(
+                                            monthId = monthId,
+                                        ),
+                                    )
+                                },
                                 modifier =
                                     Modifier.weight(1f),
                             )
@@ -162,6 +169,579 @@ fun ArchiveScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ArchiveMonthDetailsScreen(
+    uiState: ArchiveUiState,
+    monthId: Long,
+    onAction: (ArchiveAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val month =
+        uiState.months.firstOrNull { archivedMonth ->
+            archivedMonth.id == monthId
+        }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                FinFlowBackground,
+            ),
+    ) {
+        ArchiveAuroraBackground()
+
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(
+                        horizontal = 20.dp,
+                    ),
+                horizontalAlignment =
+                    Alignment.CenterHorizontally,
+            ) {
+                Spacer(
+                    modifier = Modifier.height(12.dp),
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(
+                            max = 560.dp,
+                        ),
+                ) {
+                    ArchiveMonthDetailsHeader(
+                        monthLabel =
+                            month?.monthLabel
+                                ?: "Архивный месяц",
+                        onBackClick = {
+                            onAction(
+                                ArchiveAction.BackClicked,
+                            )
+                        },
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(20.dp),
+                    )
+
+                    when {
+                        uiState.status ==
+                                ArchiveUiStatus.LOADING -> {
+                            ArchiveLoadingState(
+                                modifier =
+                                    Modifier.weight(1f),
+                            )
+                        }
+
+                        uiState.status ==
+                                ArchiveUiStatus.ERROR -> {
+                            ArchiveErrorState(
+                                message =
+                                    uiState.errorMessage,
+                                onRetry = {
+                                    onAction(
+                                        ArchiveAction
+                                            .RetryClicked,
+                                    )
+                                },
+                                modifier =
+                                    Modifier.weight(1f),
+                            )
+                        }
+
+                        month == null -> {
+                            ArchiveMonthNotFoundState(
+                                modifier =
+                                    Modifier.weight(1f),
+                            )
+                        }
+
+                        else -> {
+                            ArchiveMonthDetailsContent(
+                                month = month,
+                                modifier =
+                                    Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArchiveMonthDetailsHeader(
+    monthLabel: String,
+    onBackClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment =
+            Alignment.CenterVertically,
+    ) {
+        Surface(
+            onClick = onBackClick,
+            modifier = Modifier.size(40.dp),
+            color =
+                FinFlowSurfaceElevated.copy(
+                    alpha = 0.90f,
+                ),
+            shape = CircleShape,
+            border = BorderStroke(
+                width = 1.dp,
+                color = FinFlowBorder,
+            ),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment =
+                    Alignment.Center,
+            ) {
+                Text(
+                    text = "←",
+                    modifier = Modifier.offset(
+                        x = (-1).dp,
+                        y = (-1).dp,
+                    ),
+                    color = FinFlowTextPrimary,
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight =
+                        FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(
+                    horizontal = 14.dp,
+                ),
+        ) {
+            Text(
+                text = monthLabel,
+                color = FinFlowTextPrimary,
+                style =
+                    MaterialTheme.typography
+                        .titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
+
+            Text(
+                text = "Детали завершённого месяца",
+                color = FinFlowTextMuted,
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
+        }
+
+        Surface(
+            color =
+                FinFlowIncome.copy(
+                    alpha = 0.12f,
+                ),
+            shape = CircleShape,
+            border = BorderStroke(
+                width = 1.dp,
+                color =
+                    FinFlowIncome.copy(
+                        alpha = 0.30f,
+                    ),
+            ),
+        ) {
+            Text(
+                text = "✓",
+                modifier = Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 8.dp,
+                ),
+                color = FinFlowIncome,
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ArchiveMonthDetailsContent(
+    month: ArchiveMonthUiModel,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(
+                12.dp,
+            ),
+    ) {
+        item(
+            key = "month_hero",
+        ) {
+            ArchiveMonthHeroCard(
+                month = month,
+            )
+        }
+
+        item(
+            key = "month_period",
+        ) {
+            ArchiveMonthPeriodCard(
+                month = month,
+            )
+        }
+
+        item(
+            key = "month_history_note",
+        ) {
+            ArchiveMonthHistoryCard()
+        }
+
+        item(
+            key = "month_bottom_space",
+        ) {
+            Spacer(
+                modifier = Modifier.height(24.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ArchiveMonthHeroCard(
+    month: ArchiveMonthUiModel,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color =
+            FinFlowPrimary.copy(
+                alpha = 0.11f,
+            ),
+        shape =
+            MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(
+            width = 1.dp,
+            color =
+                FinFlowPrimary.copy(
+                    alpha = 0.30f,
+                ),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(22.dp),
+        ) {
+            Text(
+                text = "ЗАВЕРШЁННЫЙ ПЕРИОД",
+                color = FinFlowPrimaryLight,
+                style =
+                    MaterialTheme.typography
+                        .labelSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Spacer(
+                modifier = Modifier.height(8.dp),
+            )
+
+            Text(
+                text = month.monthLabel,
+                color = FinFlowTextPrimary,
+                style =
+                    MaterialTheme.typography
+                        .headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+
+            Spacer(
+                modifier = Modifier.height(20.dp),
+            )
+
+            Text(
+                text = "СТАРТОВЫЙ БЮДЖЕТ",
+                color = FinFlowTextMuted,
+                style =
+                    MaterialTheme.typography
+                        .labelSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Spacer(
+                modifier = Modifier.height(6.dp),
+            )
+
+            Text(
+                text =
+                    month.initialBudget
+                        .toRubleText(),
+                color = FinFlowTextPrimary,
+                style =
+                    MaterialTheme.typography
+                        .headlineLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ArchiveMonthPeriodCard(
+    month: ArchiveMonthUiModel,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color =
+            FinFlowSurface.copy(
+                alpha = 0.92f,
+            ),
+        shape =
+            MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(
+            width = 1.dp,
+            color =
+                FinFlowBorder.copy(
+                    alpha = 0.75f,
+                ),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+        ) {
+            Text(
+                text = "Период",
+                color = FinFlowTextPrimary,
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Spacer(
+                modifier = Modifier.height(14.dp),
+            )
+
+            ArchivePeriodRow(
+                title = "Начат",
+                value =
+                    month.startedAtMillis
+                        .toDateText(),
+                accent = FinFlowPrimaryLight,
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp),
+            )
+
+            ArchivePeriodRow(
+                title = "Завершён",
+                value =
+                    month.closedAtMillis
+                        ?.toDateText()
+                        ?: "Дата недоступна",
+                accent = FinFlowIncome,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ArchivePeriodRow(
+    title: String,
+    value: String,
+    accent: Color,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment =
+            Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(8.dp),
+            color = accent,
+            shape = CircleShape,
+        ) {}
+
+        Spacer(
+            modifier = Modifier.size(10.dp),
+        )
+
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            color = FinFlowTextSecondary,
+            style =
+                MaterialTheme.typography
+                    .bodyMedium,
+        )
+
+        Text(
+            text = value,
+            color = FinFlowTextPrimary,
+            style =
+                MaterialTheme.typography
+                    .bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+private fun ArchiveMonthHistoryCard() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color =
+            FinFlowSurfaceElevated.copy(
+                alpha = 0.82f,
+            ),
+        shape =
+            MaterialTheme.shapes.large,
+        border = BorderStroke(
+            width = 1.dp,
+            color =
+                FinFlowBorder.copy(
+                    alpha = 0.65f,
+                ),
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment =
+                Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(36.dp),
+                color =
+                    FinFlowPrimary.copy(
+                        alpha = 0.14f,
+                    ),
+                shape = CircleShape,
+            ) {
+                Box(
+                    contentAlignment =
+                        Alignment.Center,
+                ) {
+                    Text(
+                        text = "i",
+                        color =
+                            FinFlowPrimaryLight,
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.size(12.dp),
+            )
+
+            Column {
+                Text(
+                    text = "История месяца сохранена",
+                    color = FinFlowTextPrimary,
+                    style =
+                        MaterialTheme.typography
+                            .titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+
+                Spacer(
+                    modifier = Modifier.height(3.dp),
+                )
+
+                Text(
+                    text =
+                        "FinFlow хранит завершённый период локально, чтобы история оставалась доступной для отчётов и финансового анализа.",
+                    color = FinFlowTextSecondary,
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArchiveMonthNotFoundState(
+    modifier: Modifier = Modifier,
+) {
+    ArchiveCenteredState(
+        modifier = modifier,
+    ) {
+        Surface(
+            color =
+                FinFlowSurfaceSoft,
+            shape = CircleShape,
+        ) {
+            Box(
+                modifier = Modifier.size(58.dp),
+                contentAlignment =
+                    Alignment.Center,
+            ) {
+                Text(
+                    text = "?",
+                    color = FinFlowPrimaryLight,
+                    style =
+                        MaterialTheme.typography
+                            .headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+
+        Spacer(
+            modifier = Modifier.height(20.dp),
+        )
+
+        Text(
+            text = "Месяц не найден",
+            color = FinFlowTextPrimary,
+            style =
+                MaterialTheme.typography
+                    .headlineMedium,
+            fontWeight =
+                FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+
+        Spacer(
+            modifier = Modifier.height(10.dp),
+        )
+
+        Text(
+            text =
+                "Этот финансовый месяц отсутствует в архиве.",
+            color = FinFlowTextSecondary,
+            style =
+                MaterialTheme.typography
+                    .bodyMedium,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -267,6 +847,7 @@ private fun ArchiveHeader(
 @Composable
 private fun ArchiveContent(
     months: List<ArchiveMonthUiModel>,
+    onMonthClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -297,6 +878,11 @@ private fun ArchiveContent(
         ) { month ->
             ArchiveMonthCard(
                 month = month,
+                onClick = {
+                    onMonthClick(
+                        month.id,
+                    )
+                },
             )
         }
 
@@ -391,8 +977,10 @@ private fun ArchiveSummaryCard(
 @Composable
 private fun ArchiveMonthCard(
     month: ArchiveMonthUiModel,
+    onClick: () -> Unit,
 ) {
     Surface(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         color =
             FinFlowSurface.copy(
@@ -555,6 +1143,43 @@ private fun ArchiveMonthCard(
                     style =
                         MaterialTheme.typography
                             .bodySmall,
+                )
+            }
+
+            Spacer(
+                modifier =
+                    Modifier.height(16.dp),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.End,
+                verticalAlignment =
+                    Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Подробнее",
+                    color = FinFlowPrimaryLight,
+                    style =
+                        MaterialTheme.typography
+                            .labelLarge,
+                    fontWeight =
+                        FontWeight.SemiBold,
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.size(6.dp),
+                )
+
+                Text(
+                    text = "›",
+                    color = FinFlowPrimaryLight,
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight = FontWeight.Bold,
                 )
             }
         }
