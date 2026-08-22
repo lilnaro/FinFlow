@@ -164,6 +164,8 @@ val appModule = module {
                 get(),
             addTransactionUseCase =
                 get(),
+            addCategoryUseCase =
+                get(),
         )
     }
 

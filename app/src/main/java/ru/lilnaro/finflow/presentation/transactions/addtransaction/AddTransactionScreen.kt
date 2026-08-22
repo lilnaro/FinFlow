@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,6 +40,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -171,6 +173,13 @@ fun AddTransactionScreen(
                     }
                 }
             }
+        }
+
+        if (uiState.isCustomCategoryDialogVisible) {
+            CustomCategoryDialog(
+                uiState = uiState,
+                onAction = onAction,
+            )
         }
     }
 }
@@ -321,6 +330,12 @@ private fun AddTransactionForm(
                         AddTransactionAction.CategorySelected(
                             categoryId = categoryId,
                         ),
+                    )
+                },
+                onAddCustomCategory = {
+                    onAction(
+                        AddTransactionAction
+                            .AddCustomCategoryClicked,
                     )
                 },
             )
@@ -609,6 +624,7 @@ private fun CategorySection(
     accent: Color,
     enabled: Boolean,
     onCategorySelected: (Long) -> Unit,
+    onAddCustomCategory: () -> Unit,
 ) {
     Column {
         SectionTitle(
@@ -669,6 +685,23 @@ private fun CategorySection(
             }
         }
 
+        val hasBuiltInCategories =
+            categories.any { category ->
+                !category.isCustom
+            }
+
+        if (hasBuiltInCategories) {
+            Spacer(
+                modifier = Modifier.height(10.dp),
+            )
+
+            AddCustomCategoryButton(
+                accent = accent,
+                enabled = enabled,
+                onClick = onAddCustomCategory,
+            )
+        }
+
         if (categoryError != null) {
             Spacer(
                 modifier = Modifier.height(8.dp),
@@ -681,6 +714,312 @@ private fun CategorySection(
             )
         }
     }
+}
+
+@Composable
+private fun AddCustomCategoryButton(
+    accent: Color,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        color = accent.copy(
+            alpha = 0.08f,
+        ),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(
+            width = 1.dp,
+            color = accent.copy(
+                alpha = 0.38f,
+            ),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 15.dp,
+                vertical = 11.dp,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "+",
+                color = accent,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+
+            Spacer(
+                modifier = Modifier.size(7.dp),
+            )
+
+            Text(
+                text = "Своя категория",
+                color = FinFlowTextPrimary,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CustomCategoryDialog(
+    uiState: AddTransactionUiState,
+    onAction: (AddTransactionAction) -> Unit,
+) {
+    val accent = when (uiState.type) {
+        TransactionType.EXPENSE -> FinFlowExpense
+        TransactionType.INCOME -> FinFlowIncome
+    }
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!uiState.isCreatingCategory) {
+                onAction(
+                    AddTransactionAction
+                        .CustomCategoryDialogDismissed,
+                )
+            }
+        },
+        containerColor = FinFlowSurfaceElevated,
+        titleContentColor = FinFlowTextPrimary,
+        textContentColor = FinFlowTextSecondary,
+        title = {
+            Text(
+                text = "Своя категория",
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text =
+                        "Введите название и выберите базовую категорию. Новая категория будет доступна для текущего типа операции.",
+                    color = FinFlowTextSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+
+                Spacer(
+                    modifier = Modifier.height(16.dp),
+                )
+
+                OutlinedTextField(
+                    value =
+                        uiState.customCategoryNameInput,
+                    onValueChange = { value ->
+                        onAction(
+                            AddTransactionAction
+                                .CustomCategoryNameChanged(
+                                    value = value,
+                                ),
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled =
+                        !uiState.isCreatingCategory,
+                    singleLine = true,
+                    label = {
+                        Text(
+                            text = "Название",
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            text = "Например: Кофейни",
+                        )
+                    },
+                    isError =
+                        uiState.customCategoryNameError !=
+                                null,
+                    supportingText =
+                        if (
+                            uiState.customCategoryNameError !=
+                            null
+                        ) {
+                            {
+                                Text(
+                                    text =
+                                        uiState
+                                            .customCategoryNameError,
+                                )
+                            }
+                        } else {
+                            {
+                                Text(
+                                    text =
+                                        "${uiState.customCategoryNameInput.length}/40",
+                                )
+                            }
+                        },
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType =
+                                KeyboardType.Text,
+                            imeAction = ImeAction.Next,
+                        ),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedTextColor =
+                                FinFlowTextPrimary,
+                            unfocusedTextColor =
+                                FinFlowTextPrimary,
+                            focusedBorderColor =
+                                accent,
+                            unfocusedBorderColor =
+                                FinFlowBorder,
+                            errorBorderColor =
+                                FinFlowExpense,
+                            cursorColor = accent,
+                            focusedContainerColor =
+                                Color.Transparent,
+                            unfocusedContainerColor =
+                                Color.Transparent,
+                        ),
+                    shape = MaterialTheme.shapes.large,
+                )
+
+                Spacer(
+                    modifier = Modifier.height(16.dp),
+                )
+
+                Text(
+                    text = "Базовая категория",
+                    color = FinFlowTextPrimary,
+                    style =
+                        MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+
+                Spacer(
+                    modifier = Modifier.height(4.dp),
+                )
+
+                Text(
+                    text =
+                        "Она поможет сохранить структуру категорий FinFlow.",
+                    color = FinFlowTextMuted,
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                )
+
+                Spacer(
+                    modifier = Modifier.height(10.dp),
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(
+                            rememberScrollState(),
+                        ),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp),
+                ) {
+                    uiState.builtInCategories
+                        .forEach { category ->
+                            CategoryChip(
+                                category = category,
+                                selected =
+                                    category.id ==
+                                            uiState
+                                                .selectedParentCategoryId,
+                                accent = accent,
+                                enabled =
+                                    !uiState
+                                        .isCreatingCategory,
+                                onClick = {
+                                    onAction(
+                                        AddTransactionAction
+                                            .CustomCategoryParentSelected(
+                                                categoryId =
+                                                    category.id,
+                                            ),
+                                    )
+                                },
+                            )
+                        }
+                }
+
+                if (
+                    uiState.customCategoryParentError !=
+                    null
+                ) {
+                    Spacer(
+                        modifier = Modifier.height(8.dp),
+                    )
+
+                    Text(
+                        text =
+                            uiState
+                                .customCategoryParentError,
+                        color = FinFlowExpense,
+                        style =
+                            MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onAction(
+                        AddTransactionAction
+                            .CustomCategoryCreateClicked,
+                    )
+                },
+                enabled =
+                    uiState
+                        .isCustomCategoryCreateEnabled,
+            ) {
+                if (uiState.isCreatingCategory) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = accent,
+                        strokeWidth = 2.dp,
+                    )
+
+                    Spacer(
+                        modifier = Modifier.size(8.dp),
+                    )
+
+                    Text(
+                        text = "Создаём...",
+                    )
+                } else {
+                    Text(
+                        text = "Создать",
+                        color = if (
+                            uiState
+                                .isCustomCategoryCreateEnabled
+                        ) {
+                            accent
+                        } else {
+                            FinFlowTextMuted
+                        },
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    onAction(
+                        AddTransactionAction
+                            .CustomCategoryDialogDismissed,
+                    )
+                },
+                enabled =
+                    !uiState.isCreatingCategory,
+            ) {
+                Text(
+                    text = "Отмена",
+                    color = FinFlowTextSecondary,
+                )
+            }
+        },
+    )
 }
 
 @Composable
