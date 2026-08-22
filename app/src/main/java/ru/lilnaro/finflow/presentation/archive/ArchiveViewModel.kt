@@ -59,7 +59,36 @@ class ArchiveViewModel(
             ArchiveAction.RetryClicked -> {
                 observeArchive()
             }
+
+            is ArchiveAction.MonthClicked -> {
+                openMonthDetails(
+                    monthId = action.monthId,
+                )
+            }
         }
+    }
+
+    private fun openMonthDetails(
+        monthId: Long,
+    ) {
+        if (monthId <= 0L) {
+            return
+        }
+
+        val monthExists =
+            _uiState.value.months.any { month ->
+                month.id == monthId
+            }
+
+        if (!monthExists) {
+            return
+        }
+
+        _effect.trySend(
+            ArchiveEffect.NavigateToMonthDetails(
+                monthId = monthId,
+            ),
+        )
     }
 
     private fun observeArchive() {

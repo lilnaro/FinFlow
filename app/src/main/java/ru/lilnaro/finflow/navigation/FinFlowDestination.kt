@@ -27,4 +27,21 @@ sealed interface FinFlowDestination {
     data object Archive : FinFlowDestination {
         override val route: String = "archive"
     }
+
+    data object ArchiveMonthDetails : FinFlowDestination {
+
+        const val ARG_MONTH_ID = "monthId"
+
+        private const val BASE_ROUTE =
+            "archive/month"
+
+        override val route: String =
+            "$BASE_ROUTE/{$ARG_MONTH_ID}"
+
+        fun createRoute(
+            monthId: Long,
+        ): String {
+            return "$BASE_ROUTE/$monthId"
+        }
+    }
 }

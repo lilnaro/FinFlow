@@ -7,9 +7,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import ru.lilnaro.finflow.presentation.archive.ArchiveMonthDetailsRoute
 import ru.lilnaro.finflow.presentation.archive.ArchiveRoute
 import ru.lilnaro.finflow.presentation.assistant.AssistantScreen
 import ru.lilnaro.finflow.presentation.home.HomeRoute
@@ -145,6 +148,47 @@ fun FinFlowNavHost(
                     .Archive.route,
         ) {
             ArchiveRoute(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToMonthDetails = { monthId ->
+                    navController.navigate(
+                        FinFlowDestination
+                            .ArchiveMonthDetails
+                            .createRoute(
+                                monthId = monthId,
+                            ),
+                    )
+                },
+            )
+        }
+
+        composable(
+            route =
+                FinFlowDestination
+                    .ArchiveMonthDetails.route,
+            arguments = listOf(
+                navArgument(
+                    name =
+                        FinFlowDestination
+                            .ArchiveMonthDetails
+                            .ARG_MONTH_ID,
+                ) {
+                    type = NavType.LongType
+                },
+            ),
+        ) { backStackEntry ->
+            val monthId =
+                backStackEntry.arguments
+                    ?.getLong(
+                        FinFlowDestination
+                            .ArchiveMonthDetails
+                            .ARG_MONTH_ID,
+                    )
+                    ?: return@composable
+
+            ArchiveMonthDetailsRoute(
+                monthId = monthId,
                 onNavigateBack = {
                     navController.popBackStack()
                 },

@@ -8,10 +8,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.compose.koinViewModel
 import ru.lilnaro.finflow.presentation.archive.model.ArchiveEffect
+import ru.lilnaro.finflow.presentation.archive.model.ArchiveMonthDetailsEffect
 
 @Composable
 fun ArchiveRoute(
     onNavigateBack: () -> Unit,
+    onNavigateToMonthDetails: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ArchiveViewModel =
         koinViewModel(),
@@ -24,17 +26,70 @@ fun ArchiveRoute(
         onNavigateBack,
     )
 
+    val currentOnNavigateToMonthDetails by
+    rememberUpdatedState(
+        onNavigateToMonthDetails,
+    )
+
     LaunchedEffect(viewModel) {
         viewModel.effect.collect { effect ->
             when (effect) {
                 ArchiveEffect.NavigateBack -> {
                     currentOnNavigateBack()
                 }
+
+                is ArchiveEffect.NavigateToMonthDetails -> {
+                    currentOnNavigateToMonthDetails(
+                        effect.monthId,
+                    )
+                }
             }
         }
     }
 
     ArchiveScreen(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun ArchiveMonthDetailsRoute(
+    monthId: Long,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: ArchiveMonthDetailsViewModel =
+        koinViewModel(),
+) {
+    val uiState by
+    viewModel.uiState.collectAsStateWithLifecycle()
+
+    val currentOnNavigateBack by
+    rememberUpdatedState(
+        onNavigateBack,
+    )
+
+    LaunchedEffect(
+        monthId,
+        viewModel,
+    ) {
+        viewModel.loadMonth(
+            monthId = monthId,
+        )
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                ArchiveMonthDetailsEffect.NavigateBack -> {
+                    currentOnNavigateBack()
+                }
+            }
+        }
+    }
+
+    ArchiveMonthDetailsScreen(
         uiState = uiState,
         onAction = viewModel::onAction,
         modifier = modifier,
