@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.compose.koinViewModel
 import ru.lilnaro.finflow.presentation.archive.model.ArchiveEffect
+import ru.lilnaro.finflow.presentation.archive.model.ArchiveMonthDetailsEffect
 
 @Composable
 fun ArchiveRoute(
@@ -58,7 +59,7 @@ fun ArchiveMonthDetailsRoute(
     monthId: Long,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ArchiveViewModel =
+    viewModel: ArchiveMonthDetailsViewModel =
         koinViewModel(),
 ) {
     val uiState by
@@ -69,16 +70,20 @@ fun ArchiveMonthDetailsRoute(
         onNavigateBack,
     )
 
+    LaunchedEffect(
+        monthId,
+        viewModel,
+    ) {
+        viewModel.loadMonth(
+            monthId = monthId,
+        )
+    }
+
     LaunchedEffect(viewModel) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                ArchiveEffect.NavigateBack -> {
+                ArchiveMonthDetailsEffect.NavigateBack -> {
                     currentOnNavigateBack()
-                }
-
-                is ArchiveEffect.NavigateToMonthDetails -> {
-                    // На экране деталей повторная навигация
-                    // к деталям не нужна.
                 }
             }
         }
@@ -86,7 +91,6 @@ fun ArchiveMonthDetailsRoute(
 
     ArchiveMonthDetailsScreen(
         uiState = uiState,
-        monthId = monthId,
         onAction = viewModel::onAction,
         modifier = modifier,
     )
