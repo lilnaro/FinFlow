@@ -16,6 +16,13 @@ data class AddTransactionUiState(
     val noteInput: String = "",
     val amountError: String? = null,
     val categoryError: String? = null,
+    val isCustomCategoryDialogVisible:
+    Boolean = false,
+    val customCategoryNameInput: String = "",
+    val selectedParentCategoryId: Long? = null,
+    val customCategoryNameError: String? = null,
+    val customCategoryParentError: String? = null,
+    val isCreatingCategory: Boolean = false,
     val errorMessage: String? = null,
     val isSaving: Boolean = false,
 ) {
@@ -28,6 +35,7 @@ data class AddTransactionUiState(
                     amountError == null &&
                     selectedCategoryId != null &&
                     categoryError == null &&
+                    !isCreatingCategory &&
                     !isSaving
         }
 
@@ -37,6 +45,23 @@ data class AddTransactionUiState(
             return categories.firstOrNull { category ->
                 category.id == selectedCategoryId
             }
+        }
+
+    val builtInCategories:
+            List<AddTransactionCategoryUiModel>
+        get() {
+            return categories.filterNot { category ->
+                category.isCustom
+            }
+        }
+
+    val isCustomCategoryCreateEnabled: Boolean
+        get() {
+            return customCategoryNameInput.isNotBlank() &&
+                    selectedParentCategoryId != null &&
+                    customCategoryNameError == null &&
+                    customCategoryParentError == null &&
+                    !isCreatingCategory
         }
 }
 

@@ -20,6 +20,23 @@ sealed interface AddTransactionAction {
         val categoryId: Long,
     ) : AddTransactionAction
 
+    data object AddCustomCategoryClicked :
+        AddTransactionAction
+
+    data object CustomCategoryDialogDismissed :
+        AddTransactionAction
+
+    data class CustomCategoryNameChanged(
+        val value: String,
+    ) : AddTransactionAction
+
+    data class CustomCategoryParentSelected(
+        val categoryId: Long,
+    ) : AddTransactionAction
+
+    data object CustomCategoryCreateClicked :
+        AddTransactionAction
+
     data class NoteChanged(
         val value: String,
     ) : AddTransactionAction

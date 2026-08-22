@@ -17,7 +17,9 @@ import ru.lilnaro.finflow.domain.model.FinancialMonth
 import ru.lilnaro.finflow.domain.model.Transaction
 import ru.lilnaro.finflow.domain.model.TransactionCategory
 import ru.lilnaro.finflow.domain.model.TransactionType
+import ru.lilnaro.finflow.domain.model.result.AddCategoryResult
 import ru.lilnaro.finflow.domain.model.result.AddTransactionResult
+import ru.lilnaro.finflow.domain.usecase.AddCategoryUseCase
 import ru.lilnaro.finflow.domain.usecase.AddTransactionUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveActiveFinancialMonthUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveCategoriesByTypeUseCase
@@ -34,6 +36,8 @@ class AddTransactionViewModel(
     ObserveCategoriesByTypeUseCase,
     private val addTransactionUseCase:
     AddTransactionUseCase,
+    private val addCategoryUseCase:
+    AddCategoryUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -60,6 +64,9 @@ class AddTransactionViewModel(
         null
 
     private var observationJob: Job? = null
+
+    private var pendingCreatedCategoryId: Long? =
+        null
 
     init {
         observeFormData()
@@ -95,6 +102,34 @@ class AddTransactionViewModel(
                 selectCategory(
                     categoryId = action.categoryId,
                 )
+            }
+
+            AddTransactionAction.AddCustomCategoryClicked -> {
+                openCustomCategoryDialog()
+            }
+
+            AddTransactionAction
+                .CustomCategoryDialogDismissed -> {
+                dismissCustomCategoryDialog()
+            }
+
+            is AddTransactionAction
+            .CustomCategoryNameChanged -> {
+                changeCustomCategoryName(
+                    value = action.value,
+                )
+            }
+
+            is AddTransactionAction
+            .CustomCategoryParentSelected -> {
+                selectCustomCategoryParent(
+                    categoryId = action.categoryId,
+                )
+            }
+
+            AddTransactionAction
+                .CustomCategoryCreateClicked -> {
+                createCustomCategory()
             }
 
             is AddTransactionAction.NoteChanged -> {
@@ -165,6 +200,16 @@ class AddTransactionViewModel(
                                     AddTransactionUiStatus.ERROR,
                                 categories = emptyList(),
                                 selectedCategoryId = null,
+                                isCustomCategoryDialogVisible =
+                                    false,
+                                customCategoryNameInput = "",
+                                selectedParentCategoryId =
+                                    null,
+                                customCategoryNameError =
+                                    null,
+                                customCategoryParentError =
+                                    null,
+                                isCreatingCategory = false,
                                 errorMessage =
                                     "Не удалось загрузить данные для новой транзакции.",
                                 isSaving = false,
@@ -197,6 +242,13 @@ class AddTransactionViewModel(
                     categories = emptyList(),
                     selectedCategoryId = null,
                     categoryError = null,
+                    isCustomCategoryDialogVisible =
+                        false,
+                    customCategoryNameInput = "",
+                    selectedParentCategoryId = null,
+                    customCategoryNameError = null,
+                    customCategoryParentError = null,
+                    isCreatingCategory = false,
                     errorMessage = null,
                     isSaving = false,
                 )
@@ -215,13 +267,27 @@ class AddTransactionViewModel(
         val currentSelectedCategoryId =
             _uiState.value.selectedCategoryId
 
-        val validSelectedCategoryId =
-            currentSelectedCategoryId
-                ?.takeIf { selectedId ->
+        val pendingCategoryId =
+            pendingCreatedCategoryId
+
+        val pendingCategoryIsAvailable =
+            pendingCategoryId != null &&
                     categoryUiModels.any { category ->
-                        category.id == selectedId
+                        category.id == pendingCategoryId
                     }
-                }
+
+        val validSelectedCategoryId =
+            if (pendingCategoryIsAvailable) {
+                pendingCreatedCategoryId = null
+                pendingCategoryId
+            } else {
+                currentSelectedCategoryId
+                    ?.takeIf { selectedId ->
+                        categoryUiModels.any { category ->
+                            category.id == selectedId
+                        }
+                    }
+            }
 
         _uiState.value =
             _uiState.value.copy(
@@ -247,9 +313,18 @@ class AddTransactionViewModel(
             return
         }
 
+        pendingCreatedCategoryId = null
+
         _uiState.value =
             _uiState.value.copy(
                 categoryError = null,
+                isCustomCategoryDialogVisible =
+                    false,
+                customCategoryNameInput = "",
+                selectedParentCategoryId = null,
+                customCategoryNameError = null,
+                customCategoryParentError = null,
+                isCreatingCategory = false,
             )
 
         selectedType.value = type
@@ -326,6 +401,363 @@ class AddTransactionViewModel(
             )
     }
 
+    private fun openCustomCategoryDialog() {
+        val currentState =
+            _uiState.value
+
+        if (
+            currentState.status !=
+            AddTransactionUiStatus.CONTENT ||
+            currentState.isSaving ||
+            currentState.isCreatingCategory
+        ) {
+            return
+        }
+
+        if (currentState.builtInCategories.isEmpty()) {
+            _effect.trySend(
+                AddTransactionEffect.ShowMessage(
+                    message =
+                        "Нет базовых категорий для создания своей категории.",
+                ),
+            )
+
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isCustomCategoryDialogVisible = true,
+                customCategoryNameInput = "",
+                selectedParentCategoryId = null,
+                customCategoryNameError = null,
+                customCategoryParentError = null,
+            )
+    }
+
+    private fun dismissCustomCategoryDialog() {
+        val currentState =
+            _uiState.value
+
+        if (currentState.isCreatingCategory) {
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isCustomCategoryDialogVisible = false,
+                customCategoryNameInput = "",
+                selectedParentCategoryId = null,
+                customCategoryNameError = null,
+                customCategoryParentError = null,
+            )
+    }
+
+    private fun changeCustomCategoryName(
+        value: String,
+    ) {
+        val currentState =
+            _uiState.value
+
+        if (
+            !currentState.isCustomCategoryDialogVisible ||
+            currentState.isCreatingCategory
+        ) {
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                customCategoryNameInput = value,
+                customCategoryNameError = null,
+            )
+    }
+
+    private fun selectCustomCategoryParent(
+        categoryId: Long,
+    ) {
+        val currentState =
+            _uiState.value
+
+        if (
+            !currentState.isCustomCategoryDialogVisible ||
+            currentState.isCreatingCategory
+        ) {
+            return
+        }
+
+        val parentCategory =
+            currentState.builtInCategories
+                .firstOrNull { category ->
+                    category.id == categoryId
+                }
+
+        if (parentCategory == null) {
+            _uiState.value =
+                currentState.copy(
+                    selectedParentCategoryId = null,
+                    customCategoryParentError =
+                        "Выбранная базовая категория недоступна.",
+                )
+
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                selectedParentCategoryId =
+                    parentCategory.id,
+                customCategoryParentError = null,
+            )
+    }
+
+    private fun createCustomCategory() {
+        val currentState =
+            _uiState.value
+
+        if (
+            currentState.status !=
+            AddTransactionUiStatus.CONTENT ||
+            !currentState.isCustomCategoryDialogVisible ||
+            currentState.isSaving ||
+            currentState.isCreatingCategory
+        ) {
+            return
+        }
+
+        val categoryName =
+            currentState.customCategoryNameInput
+
+        val parentCategoryId =
+            currentState.selectedParentCategoryId
+
+        val nameError =
+            if (categoryName.isBlank()) {
+                "Введите название категории."
+            } else {
+                null
+            }
+
+        if (nameError != null) {
+            _uiState.value =
+                currentState.copy(
+                    customCategoryNameError =
+                        nameError,
+                )
+
+            return
+        }
+
+        if (parentCategoryId == null) {
+            _uiState.value =
+                currentState.copy(
+                    customCategoryParentError =
+                        "Выберите базовую категорию.",
+                )
+
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                customCategoryNameError = null,
+                customCategoryParentError = null,
+                isCreatingCategory = true,
+            )
+
+        viewModelScope.launch {
+            val result =
+                try {
+                    addCategoryUseCase(
+                        rawName = categoryName,
+                        type = currentState.type,
+                        parentCategoryId =
+                            parentCategoryId,
+                    )
+                } catch (_: Exception) {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isCreatingCategory =
+                                false,
+                        )
+
+                    _effect.send(
+                        AddTransactionEffect.ShowMessage(
+                            message =
+                                "Не удалось создать категорию.",
+                        ),
+                    )
+
+                    return@launch
+                }
+
+            handleAddCategoryResult(
+                result = result,
+            )
+        }
+    }
+
+    private suspend fun handleAddCategoryResult(
+        result: AddCategoryResult,
+    ) {
+        when (result) {
+            is AddCategoryResult.Success -> {
+                val categoryAlreadyVisible =
+                    _uiState.value.categories
+                        .any { category ->
+                            category.id ==
+                                    result.categoryId
+                        }
+
+                pendingCreatedCategoryId =
+                    if (categoryAlreadyVisible) {
+                        null
+                    } else {
+                        result.categoryId
+                    }
+
+                _uiState.value =
+                    _uiState.value.copy(
+                        selectedCategoryId =
+                            if (categoryAlreadyVisible) {
+                                result.categoryId
+                            } else {
+                                _uiState.value
+                                    .selectedCategoryId
+                            },
+                        categoryError = null,
+                        isCustomCategoryDialogVisible =
+                            false,
+                        customCategoryNameInput = "",
+                        selectedParentCategoryId =
+                            null,
+                        customCategoryNameError =
+                            null,
+                        customCategoryParentError =
+                            null,
+                        isCreatingCategory = false,
+                    )
+
+                _effect.send(
+                    AddTransactionEffect.ShowMessage(
+                        message =
+                            "Категория создана.",
+                    ),
+                )
+            }
+
+            is AddCategoryResult.NameTooShort -> {
+                finishCategoryCreationWithNameError(
+                    message =
+                        "Минимум ${result.minimumLength} символа.",
+                )
+            }
+
+            is AddCategoryResult.NameTooLong -> {
+                finishCategoryCreationWithNameError(
+                    message =
+                        "Максимум ${result.maximumLength} символов.",
+                )
+            }
+
+            AddCategoryResult.NameMustContainLetter -> {
+                finishCategoryCreationWithNameError(
+                    message =
+                        "Название должно содержать хотя бы одну букву.",
+                )
+            }
+
+            is AddCategoryResult
+            .NameContainsInvalidCharacters -> {
+                val invalidCharacters =
+                    result.invalidCharacters
+                        .joinToString(
+                            separator = ", ",
+                        ) { character ->
+                            "«$character»"
+                        }
+
+                finishCategoryCreationWithNameError(
+                    message =
+                        "Недопустимые символы: $invalidCharacters.",
+                )
+            }
+
+            is AddCategoryResult
+            .InvalidParentCategoryId -> {
+                finishCategoryCreationWithParentError(
+                    message =
+                        "Выберите базовую категорию.",
+                    clearSelection = true,
+                )
+            }
+
+            is AddCategoryResult
+            .ParentCategoryNotFound -> {
+                finishCategoryCreationWithParentError(
+                    message =
+                        "Базовая категория больше недоступна.",
+                    clearSelection = true,
+                )
+            }
+
+            is AddCategoryResult
+            .ParentCategoryMustBeBuiltIn -> {
+                finishCategoryCreationWithParentError(
+                    message =
+                        "Выберите встроенную категорию.",
+                    clearSelection = true,
+                )
+            }
+
+            is AddCategoryResult
+            .ParentCategoryTypeMismatch -> {
+                finishCategoryCreationWithParentError(
+                    message =
+                        "Базовая категория не подходит для выбранного типа операции.",
+                    clearSelection = true,
+                )
+            }
+
+            is AddCategoryResult
+            .CategoryAlreadyExists -> {
+                finishCategoryCreationWithNameError(
+                    message =
+                        "Категория «${result.existingCategoryName}» уже существует.",
+                )
+            }
+        }
+    }
+
+    private fun finishCategoryCreationWithNameError(
+        message: String,
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                customCategoryNameError = message,
+                isCreatingCategory = false,
+            )
+    }
+
+    private fun finishCategoryCreationWithParentError(
+        message: String,
+        clearSelection: Boolean,
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                selectedParentCategoryId =
+                    if (clearSelection) {
+                        null
+                    } else {
+                        _uiState.value
+                            .selectedParentCategoryId
+                    },
+                customCategoryParentError =
+                    message,
+                isCreatingCategory = false,
+            )
+    }
+
     private fun changeNote(
         value: String,
     ) {
@@ -369,7 +801,9 @@ class AddTransactionViewModel(
         if (
             currentState.status !=
             AddTransactionUiStatus.CONTENT ||
-            currentState.isSaving
+            currentState.isSaving ||
+            currentState.isCreatingCategory ||
+            currentState.isCustomCategoryDialogVisible
         ) {
             return
         }
