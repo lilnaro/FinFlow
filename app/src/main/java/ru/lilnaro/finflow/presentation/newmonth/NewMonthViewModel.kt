@@ -6,10 +6,10 @@ import java.math.BigDecimal
 import java.util.Calendar
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import ru.lilnaro.finflow.domain.model.FinancialMonth
@@ -40,6 +40,10 @@ class NewMonthViewModel(
             Calendar.MONTH,
         ) + 1
 
+    private var existingPeriods:
+            Set<FinancialMonthPeriod> =
+        emptySet()
+
     private val _uiState =
         MutableStateFlow(
             NewMonthUiState(
@@ -47,6 +51,12 @@ class NewMonthViewModel(
                 monthNumber = currentMonthNumber,
                 monthLabel =
                     "Определяем период…",
+                availableMonthNumbers =
+                    createAvailableMonthNumbers(
+                        year = currentYear,
+                        occupiedPeriods =
+                            emptySet(),
+                    ),
                 isPeriodLoading = true,
             ),
         )
@@ -63,7 +73,7 @@ class NewMonthViewModel(
         _effect.receiveAsFlow()
 
     init {
-        resolveSuggestedPeriod()
+        resolvePeriodOptions()
     }
 
     fun onAction(
@@ -80,38 +90,74 @@ class NewMonthViewModel(
                 )
             }
 
+            is NewMonthAction.MonthSelected -> {
+                selectMonth(
+                    monthNumber =
+                        action.monthNumber,
+                )
+            }
+
             NewMonthAction.CreateMonthClicked -> {
                 createFinancialMonth()
             }
         }
     }
 
-    private fun resolveSuggestedPeriod() {
+    private fun resolvePeriodOptions() {
         viewModelScope.launch {
-            val suggestedPeriod =
+            val archivedMonths =
                 try {
-                    val archivedMonths =
-                        observeArchivedFinancialMonthsUseCase()
-                            .first()
-
-                    calculateSuggestedPeriod(
-                        archivedMonths =
-                            archivedMonths,
-                    )
+                    observeArchivedFinancialMonthsUseCase()
+                        .first()
                 } catch (_: Exception) {
                     _effect.send(
                         NewMonthEffect.ShowMessage(
                             message =
-                                "Не удалось проверить историю месяцев. Используем текущий период.",
+                                "Не удалось проверить историю месяцев. Доступность периода дополнительно проверится при создании.",
                         ),
                     )
 
-                    FinancialMonthPeriod(
-                        year = currentYear,
-                        monthNumber =
-                            currentMonthNumber,
-                    )
+                    emptyList()
                 }
+
+            existingPeriods =
+                archivedMonths.map { financialMonth ->
+                    FinancialMonthPeriod(
+                        year =
+                            financialMonth.year,
+                        monthNumber =
+                            financialMonth.monthNumber,
+                    )
+                }.toSet()
+
+            val suggestedPeriod =
+                findNewestAvailablePeriod(
+                    occupiedPeriods =
+                        existingPeriods,
+                )
+
+            if (suggestedPeriod == null) {
+                _uiState.value =
+                    _uiState.value.copy(
+                        availableMonthNumbers =
+                            emptyList(),
+                        monthLabel =
+                            "Нет доступного периода",
+                        periodError =
+                            "Не удалось определить текущий или следующий месяц.",
+                        isPeriodLoading = false,
+                    )
+
+                return@launch
+            }
+
+            val suggestedMonthLabel =
+                createMonthLabel(
+                    monthNumber =
+                        suggestedPeriod.monthNumber,
+                    year =
+                        suggestedPeriod.year,
+                )
 
             _uiState.value =
                 _uiState.value.copy(
@@ -119,20 +165,104 @@ class NewMonthViewModel(
                     monthNumber =
                         suggestedPeriod.monthNumber,
                     monthLabel =
-                        createMonthLabel(
-                            monthNumber =
-                                suggestedPeriod.monthNumber,
+                        suggestedMonthLabel,
+                    availableMonthNumbers =
+                        createAvailableMonthNumbers(
                             year =
                                 suggestedPeriod.year,
+                            occupiedPeriods =
+                                existingPeriods,
                         ),
+                    periodError =
+                        if (
+                            suggestedPeriod in
+                            existingPeriods
+                        ) {
+                            if (
+                                currentMonthNumber ==
+                                MONTHS_IN_YEAR
+                            ) {
+                                "Текущий месяц уже создан."
+                            } else {
+                                "Текущий и следующий месяцы уже созданы."
+                            }
+                        } else {
+                            null
+                        },
                     isPeriodLoading = false,
                 )
         }
     }
 
-    private fun calculateSuggestedPeriod(
-        archivedMonths: List<FinancialMonth>,
-    ): FinancialMonthPeriod {
+    private fun selectMonth(
+        monthNumber: Int,
+    ) {
+        val currentState =
+            _uiState.value
+
+        if (
+            currentState.isSaving ||
+            currentState.isPeriodLoading
+        ) {
+            return
+        }
+
+        if (
+            monthNumber !in
+            currentState.availableMonthNumbers
+        ) {
+            return
+        }
+
+        val selectedPeriod =
+            FinancialMonthPeriod(
+                year = currentState.year,
+                monthNumber =
+                    monthNumber,
+            )
+
+        val selectedMonthLabel =
+            createMonthLabel(
+                monthNumber =
+                    monthNumber,
+                year =
+                    currentState.year,
+            )
+
+        _uiState.value =
+            currentState.copy(
+                monthNumber = monthNumber,
+                monthLabel =
+                    selectedMonthLabel,
+                periodError =
+                    if (
+                        selectedPeriod in
+                        existingPeriods
+                    ) {
+                        "Финансовый месяц $selectedMonthLabel уже существует."
+                    } else {
+                        null
+                    },
+            )
+    }
+
+    private fun createAvailableMonthNumbers(
+        year: Int,
+        occupiedPeriods:
+        Set<FinancialMonthPeriod>,
+    ): List<Int> {
+        if (year != currentYear) {
+            return emptyList()
+        }
+
+        return createSupportedPeriods()
+            .map { period ->
+                period.monthNumber
+            }
+    }
+
+    private fun createSupportedPeriods():
+            List<FinancialMonthPeriod> {
         val currentPeriod =
             FinancialMonthPeriod(
                 year = currentYear,
@@ -140,48 +270,80 @@ class NewMonthViewModel(
                     currentMonthNumber,
             )
 
-        val latestArchivedMonth =
-            archivedMonths.maxWithOrNull(
-                compareBy<FinancialMonth>(
-                    { financialMonth ->
-                        financialMonth.year
-                    },
-                    { financialMonth ->
-                        financialMonth.monthNumber
-                    },
-                ),
-            ) ?: return currentPeriod
-
-        val nextAfterLatest =
-            if (
-                latestArchivedMonth.monthNumber == 12
-            ) {
-                FinancialMonthPeriod(
-                    year =
-                        latestArchivedMonth.year + 1,
-                    monthNumber = 1,
-                )
-            } else {
-                FinancialMonthPeriod(
-                    year = latestArchivedMonth.year,
-                    monthNumber =
-                        latestArchivedMonth.monthNumber + 1,
-                )
-            }
-
-        return if (
-            nextAfterLatest.toPeriodIndex() >
-            currentPeriod.toPeriodIndex()
+        if (
+            currentMonthNumber ==
+            MONTHS_IN_YEAR
         ) {
-            nextAfterLatest
-        } else {
-            currentPeriod
+            return listOf(
+                currentPeriod,
+            )
         }
+
+        return listOf(
+            currentPeriod,
+            FinancialMonthPeriod(
+                year = currentYear,
+                monthNumber =
+                    currentMonthNumber + 1,
+            ),
+        )
     }
 
-    private fun FinancialMonthPeriod.toPeriodIndex(): Long {
-        return year.toLong() * MONTHS_IN_YEAR +
-                monthNumber
+    private fun findNewestAvailablePeriod(
+        occupiedPeriods:
+        Set<FinancialMonthPeriod>,
+    ): FinancialMonthPeriod? {
+        val supportedPeriods =
+            createSupportedPeriods()
+
+        return supportedPeriods
+            .firstOrNull { period ->
+                period !in occupiedPeriods
+            }
+            ?: supportedPeriods.lastOrNull()
+    }
+
+    private fun validateSelectedPeriod():
+            String? {
+        val currentState =
+            _uiState.value
+
+        val selectedPeriod =
+            FinancialMonthPeriod(
+                year = currentState.year,
+                monthNumber =
+                    currentState.monthNumber,
+            )
+
+        if (
+            selectedPeriod.year !=
+            currentYear
+        ) {
+            return "Год определяется автоматически по дате телефона."
+        }
+
+        if (
+            selectedPeriod !in
+            createSupportedPeriods()
+        ) {
+            return if (
+                currentMonthNumber ==
+                MONTHS_IN_YEAR
+            ) {
+                "В декабре доступен только текущий месяц этого года."
+            } else {
+                "Можно выбрать только текущий или следующий месяц."
+            }
+        }
+
+        if (
+            selectedPeriod in
+            existingPeriods
+        ) {
+            return "Финансовый месяц ${currentState.monthLabel} уже существует."
+        }
+
+        return null
     }
 
     private fun handleBackClick() {
@@ -257,6 +419,19 @@ class NewMonthViewModel(
             return
         }
 
+        val periodError =
+            validateSelectedPeriod()
+
+        if (periodError != null) {
+            _uiState.value =
+                currentState.copy(
+                    periodError =
+                        periodError,
+                )
+
+            return
+        }
+
         val validationResult =
             validateBudgetForSaving(
                 input =
@@ -282,6 +457,7 @@ class NewMonthViewModel(
         _uiState.value =
             currentState.copy(
                 budgetError = null,
+                periodError = null,
                 isSaving = true,
             )
 
@@ -344,14 +520,14 @@ class NewMonthViewModel(
             is CreateFinancialMonthResult.YearOutOfRange -> {
                 finishSavingWithMessage(
                     message =
-                        "Текущий год находится вне поддерживаемого диапазона.",
+                        "Выбранный год находится вне поддерживаемого диапазона.",
                 )
             }
 
             is CreateFinancialMonthResult.InvalidMonthNumber -> {
                 finishSavingWithMessage(
                     message =
-                        "Не удалось определить текущий месяц.",
+                        "Выбран некорректный месяц.",
                 )
             }
 
@@ -381,10 +557,12 @@ class NewMonthViewModel(
 
             is CreateFinancialMonthResult
             .FinancialMonthAlreadyExists -> {
-                finishSavingWithMessage(
-                    message =
-                        "Финансовый месяц ${_uiState.value.monthLabel} уже существует.",
-                )
+                _uiState.value =
+                    _uiState.value.copy(
+                        periodError =
+                            "Финансовый месяц ${_uiState.value.monthLabel} уже существует.",
+                        isSaving = false,
+                    )
             }
         }
     }
@@ -532,7 +710,7 @@ class NewMonthViewModel(
 
     private companion object {
 
-        const val MONTHS_IN_YEAR = 12L
+        const val MONTHS_IN_YEAR = 12
 
         val MAX_INITIAL_BUDGET =
             BigDecimal("999999999999.99")

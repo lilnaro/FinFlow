@@ -28,6 +28,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -38,6 +40,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -126,6 +131,31 @@ fun NewMonthScreen(
 
                     MonthHeroCard(
                         monthLabel = uiState.monthLabel,
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(18.dp),
+                    )
+
+                    PeriodSelectorCard(
+                        year = uiState.year,
+                        monthNumber =
+                            uiState.monthNumber,
+                        availableMonthNumbers =
+                            uiState.availableMonthNumbers,
+                        error = uiState.periodError,
+                        enabled =
+                            !uiState.isSaving &&
+                                    !uiState.isPeriodLoading,
+                        onMonthSelected = { monthNumber ->
+                            onAction(
+                                NewMonthAction
+                                    .MonthSelected(
+                                        monthNumber =
+                                            monthNumber,
+                                    ),
+                            )
+                        },
                     )
 
                     Spacer(
@@ -330,6 +360,262 @@ private fun MonthHeroCard(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
+    }
+}
+
+@Composable
+private fun PeriodSelectorCard(
+    year: Int,
+    monthNumber: Int,
+    availableMonthNumbers: List<Int>,
+    error: String?,
+    enabled: Boolean,
+    onMonthSelected: (Int) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = FinFlowSurface.copy(
+            alpha = 0.94f,
+        ),
+        shape = MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (error == null) {
+                FinFlowBorder
+            } else {
+                MaterialTheme.colorScheme.error
+            },
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+        ) {
+            Text(
+                text = "ПЕРИОД",
+                color = FinFlowTextSecondary,
+                style =
+                    MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp),
+            ) {
+                PeriodDropdown(
+                    value =
+                        monthNumber.toMonthName(),
+                    options =
+                        availableMonthNumbers.map {
+                                availableMonthNumber ->
+                            PeriodDropdownOption(
+                                label =
+                                    availableMonthNumber
+                                        .toMonthName(),
+                                value =
+                                    availableMonthNumber,
+                            )
+                        },
+                    enabled = enabled,
+                    onSelected =
+                        onMonthSelected,
+                    modifier = Modifier.weight(1f),
+                )
+
+                PeriodYearField(
+                    year = year,
+                    modifier =
+                        Modifier.weight(0.72f),
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(10.dp),
+            )
+
+            Text(
+                text = error
+                    ?: "Год определяется автоматически по дате телефона. Доступны текущий и следующий месяц.",
+                color = if (error == null) {
+                    FinFlowTextMuted
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+                style =
+                    MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PeriodYearField(
+    year: Int,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color =
+            FinFlowSurfaceElevated,
+        shape =
+            MaterialTheme.shapes.large,
+        border = BorderStroke(
+            width = 1.dp,
+            color = FinFlowBorder,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 14.dp,
+                vertical = 14.dp,
+            ),
+            verticalAlignment =
+                Alignment.CenterVertically,
+        ) {
+            Text(
+                text = year.toString(),
+                color = FinFlowTextPrimary,
+                style =
+                    MaterialTheme.typography
+                        .bodyLarge,
+                fontWeight =
+                    FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PeriodDropdown(
+    value: String,
+    options: List<PeriodDropdownOption>,
+    enabled: Boolean,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    Box(
+        modifier = modifier,
+    ) {
+        Surface(
+            onClick = {
+                if (
+                    enabled &&
+                    options.isNotEmpty()
+                ) {
+                    expanded = true
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            color =
+                FinFlowSurfaceElevated,
+            shape =
+                MaterialTheme.shapes.large,
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (expanded) {
+                    FinFlowPrimary
+                } else {
+                    FinFlowBorder
+                },
+            ),
+            enabled =
+                enabled &&
+                        options.isNotEmpty(),
+        ) {
+            Row(
+                modifier = Modifier.padding(
+                    horizontal = 14.dp,
+                    vertical = 14.dp,
+                ),
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+                verticalAlignment =
+                    Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = value,
+                    color = if (enabled) {
+                        FinFlowTextPrimary
+                    } else {
+                        FinFlowTextMuted
+                    },
+                    style =
+                        MaterialTheme.typography
+                            .bodyLarge,
+                    fontWeight =
+                        FontWeight.SemiBold,
+                )
+
+                Text(
+                    text = "⌄",
+                    color = if (enabled) {
+                        FinFlowPrimaryLight
+                    } else {
+                        FinFlowTextMuted
+                    },
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight =
+                        FontWeight.Bold,
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+            },
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = option.label,
+                            fontWeight =
+                                if (
+                                    option.label ==
+                                    value
+                                ) {
+                                    FontWeight.SemiBold
+                                } else {
+                                    FontWeight.Normal
+                                },
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+
+                        onSelected(
+                            option.value,
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+private data class PeriodDropdownOption(
+    val label: String,
+    val value: Int,
+)
+
+private fun Int.toMonthName(): String {
+    return MONTH_NAMES.getOrElse(
+        index = this - 1,
+    ) {
+        "Месяц $this"
     }
 }
 
@@ -631,6 +917,21 @@ private fun NewMonthAuroraBackground() {
     }
 }
 
+private val MONTH_NAMES = listOf(
+    "Январь",
+    "Февраль",
+    "Март",
+    "Апрель",
+    "Май",
+    "Июнь",
+    "Июль",
+    "Август",
+    "Сентябрь",
+    "Октябрь",
+    "Ноябрь",
+    "Декабрь",
+)
+
 @Preview(
     name = "New month",
     showBackground = true,
@@ -646,7 +947,13 @@ private fun NewMonthScreenPreview() {
                 year = 2026,
                 monthNumber = 8,
                 monthLabel = "Август 2026",
+                availableMonthNumbers =
+                    listOf(
+                        8,
+                        9,
+                    ),
                 initialBudgetInput = "40000",
+                isPeriodLoading = false,
             ),
             onAction = {},
             snackbarHostState =
