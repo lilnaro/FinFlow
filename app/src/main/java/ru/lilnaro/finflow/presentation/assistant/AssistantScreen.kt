@@ -608,9 +608,12 @@ private fun AssistantSetupContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier
+            .padding(
+                top = 2.dp,
+            ),
         verticalArrangement =
-            Arrangement.Center,
+            Arrangement.Top,
     ) {
         when {
             uiState.modelDownloadStatus ==
@@ -708,42 +711,76 @@ private fun AssistantSetupContent(
                     title =
                         "Подготовить FinFlow AI",
                     description =
-                        "Для локального анализа нужно один раз скачать AI-модуль. После установки ответы формируются на устройстве.",
+                        "Один раз скачайте локальный AI-модуль. После установки ответы будут формироваться прямо на устройстве.",
                     accent =
                         FinFlowPrimaryLight,
                 )
 
                 Spacer(
                     modifier =
-                        Modifier.height(12.dp),
+                        Modifier.height(10.dp),
                 )
 
-                Text(
-                    text =
-                        "Размер загрузки: ${uiState.approximateModelDownloadBytes.toGigabyteText()}",
-                    color =
-                        FinFlowTextPrimary,
-                    style =
-                        MaterialTheme.typography
-                            .bodyMedium,
-                    fontWeight =
-                        FontWeight.Medium,
-                )
-
-                Spacer(
+                Surface(
                     modifier =
-                        Modifier.height(4.dp),
-                )
-
-                Text(
-                    text =
-                        "Рекомендуется Wi‑Fi · Нужно около ${uiState.minimumRequiredFreeSpaceBytes.toGigabyteText()} свободного места",
+                        Modifier.fillMaxWidth(),
                     color =
-                        FinFlowTextSecondary,
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                )
+                        FinFlowSurfaceElevated,
+                    shape =
+                        MaterialTheme.shapes.large,
+                    border =
+                        BorderStroke(
+                            width = 1.dp,
+                            color =
+                                FinFlowBorder.copy(
+                                    alpha = 0.68f,
+                                ),
+                        ),
+                ) {
+                    Column(
+                        modifier =
+                            Modifier.padding(
+                                horizontal = 13.dp,
+                                vertical = 11.dp,
+                            ),
+                    ) {
+                        SetupInfoRow(
+                            label =
+                                "Размер загрузки",
+                            value =
+                                uiState.approximateModelDownloadBytes
+                                    .toGigabyteText(),
+                        )
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(7.dp),
+                        )
+
+                        SetupInfoRow(
+                            label =
+                                "Нужно свободного места",
+                            value =
+                                uiState.minimumRequiredFreeSpaceBytes
+                                    .toGigabyteText(),
+                        )
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(8.dp),
+                        )
+
+                        Text(
+                            text =
+                                "Для такого объёма рекомендуется Wi‑Fi.",
+                            color =
+                                FinFlowTextMuted,
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                        )
+                    }
+                }
 
                 uiState.modelDownloadErrorMessage
                     ?.let { error ->
@@ -764,7 +801,7 @@ private fun AssistantSetupContent(
 
                 Spacer(
                     modifier =
-                        Modifier.height(14.dp),
+                        Modifier.height(12.dp),
                 )
 
                 Button(
@@ -783,13 +820,48 @@ private fun AssistantSetupContent(
                 ) {
                     Text(
                         text =
-                            "Скачать ${uiState.approximateModelDownloadBytes.toGigabyteText()}",
+                            "Скачать AI-модуль",
                         fontWeight =
                             FontWeight.SemiBold,
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SetupInfoRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier =
+            Modifier.fillMaxWidth(),
+        horizontalArrangement =
+            Arrangement.SpaceBetween,
+        verticalAlignment =
+            Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            color =
+                FinFlowTextSecondary,
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+        )
+
+        Text(
+            text = value,
+            color =
+                FinFlowTextPrimary,
+            style =
+                MaterialTheme.typography
+                    .bodyMedium,
+            fontWeight =
+                FontWeight.SemiBold,
+        )
     }
 }
 
