@@ -9,9 +9,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import ru.lilnaro.finflow.domain.model.FinancialMonth
+import ru.lilnaro.finflow.domain.model.result.CloseFinancialMonthResult
+import ru.lilnaro.finflow.domain.usecase.CloseFinancialMonthUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveActiveFinancialMonthUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveArchivedFinancialMonthsUseCase
 import ru.lilnaro.finflow.presentation.archive.model.ArchiveAction
 import ru.lilnaro.finflow.presentation.archive.model.ArchiveEffect
@@ -22,6 +26,10 @@ import ru.lilnaro.finflow.presentation.archive.model.ArchiveUiStatus
 class ArchiveViewModel(
     private val observeArchivedFinancialMonthsUseCase:
     ObserveArchivedFinancialMonthsUseCase,
+    private val observeActiveFinancialMonthUseCase:
+    ObserveActiveFinancialMonthUseCase,
+    private val closeFinancialMonthUseCase:
+    CloseFinancialMonthUseCase,
 ) : ViewModel() {
 
     private val _uiState =
@@ -42,6 +50,9 @@ class ArchiveViewModel(
 
     private var observationJob: Job? = null
 
+    private var activeFinancialMonthId: Long? =
+        null
+
     init {
         observeArchive()
     }
@@ -56,6 +67,18 @@ class ArchiveViewModel(
                 )
             }
 
+            ArchiveAction.NewMonthClicked -> {
+                handleNewMonthClick()
+            }
+
+            ArchiveAction.CloseMonthConfirmed -> {
+                closeActiveFinancialMonth()
+            }
+
+            ArchiveAction.CloseMonthCancelled -> {
+                cancelMonthClosing()
+            }
+
             ArchiveAction.RetryClicked -> {
                 observeArchive()
             }
@@ -66,6 +89,165 @@ class ArchiveViewModel(
                 )
             }
         }
+    }
+
+    private fun handleNewMonthClick() {
+        val currentState =
+            _uiState.value
+
+        if (currentState.isClosingMonth) {
+            return
+        }
+
+        if (activeFinancialMonthId == null) {
+            _effect.trySend(
+                ArchiveEffect.NavigateToNewMonth,
+            )
+
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isCloseMonthConfirmationVisible = true,
+                closeMonthErrorMessage = null,
+            )
+    }
+
+    private fun cancelMonthClosing() {
+        val currentState =
+            _uiState.value
+
+        if (currentState.isClosingMonth) {
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isCloseMonthConfirmationVisible = false,
+                closeMonthErrorMessage = null,
+            )
+    }
+
+    private fun closeActiveFinancialMonth() {
+        val currentState =
+            _uiState.value
+
+        if (
+            currentState.isClosingMonth ||
+            !currentState
+                .isCloseMonthConfirmationVisible
+        ) {
+            return
+        }
+
+        val financialMonthId =
+            activeFinancialMonthId
+
+        if (financialMonthId == null) {
+            _uiState.value =
+                currentState.copy(
+                    isCloseMonthConfirmationVisible = false,
+                    isClosingMonth = false,
+                    closeMonthErrorMessage = null,
+                )
+
+            _effect.trySend(
+                ArchiveEffect.NavigateToNewMonth,
+            )
+
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isClosingMonth = true,
+                closeMonthErrorMessage = null,
+            )
+
+        viewModelScope.launch {
+            val result =
+                try {
+                    closeFinancialMonthUseCase(
+                        financialMonthId =
+                            financialMonthId,
+                        closedAtMillis =
+                            System.currentTimeMillis(),
+                    )
+                } catch (_: Exception) {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isClosingMonth = false,
+                            closeMonthErrorMessage =
+                                "Не удалось завершить финансовый месяц.",
+                        )
+
+                    return@launch
+                }
+
+            handleCloseMonthResult(
+                result = result,
+            )
+        }
+    }
+
+    private suspend fun handleCloseMonthResult(
+        result: CloseFinancialMonthResult,
+    ) {
+        when (result) {
+            is CloseFinancialMonthResult.Success,
+            is CloseFinancialMonthResult
+            .FinancialMonthAlreadyClosed,
+            is CloseFinancialMonthResult
+            .FinancialMonthNotFound -> {
+                activeFinancialMonthId = null
+
+                _uiState.value =
+                    _uiState.value.copy(
+                        isCloseMonthConfirmationVisible = false,
+                        isClosingMonth = false,
+                        closeMonthErrorMessage = null,
+                    )
+
+                _effect.send(
+                    ArchiveEffect.NavigateToNewMonth,
+                )
+            }
+
+            is CloseFinancialMonthResult
+            .InvalidFinancialMonthId -> {
+                showCloseMonthError(
+                    message =
+                        "Не удалось определить финансовый месяц.",
+                )
+            }
+
+            is CloseFinancialMonthResult
+            .InvalidClosedAtMillis -> {
+                showCloseMonthError(
+                    message =
+                        "Не удалось определить время завершения месяца.",
+                )
+            }
+
+            is CloseFinancialMonthResult
+            .ClosingTimeBeforeMonthStart -> {
+                showCloseMonthError(
+                    message =
+                        "Проверьте дату и время устройства: время завершения месяца некорректно.",
+                )
+            }
+        }
+    }
+
+    private fun showCloseMonthError(
+        message: String,
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                isClosingMonth = false,
+                closeMonthErrorMessage = message,
+            )
     }
 
     private fun openMonthDetails(
@@ -94,6 +276,8 @@ class ArchiveViewModel(
     private fun observeArchive() {
         observationJob?.cancel()
 
+        activeFinancialMonthId = null
+
         _uiState.value =
             ArchiveUiState(
                 status =
@@ -102,8 +286,16 @@ class ArchiveViewModel(
 
         observationJob =
             viewModelScope.launch {
-                observeArchivedFinancialMonthsUseCase()
+                combine(
+                    observeArchivedFinancialMonthsUseCase(),
+                    observeActiveFinancialMonthUseCase(),
+                ) { archivedFinancialMonths, activeFinancialMonth ->
+                    archivedFinancialMonths to
+                            activeFinancialMonth
+                }
                     .catch {
+                        activeFinancialMonthId = null
+
                         _uiState.value =
                             ArchiveUiState(
                                 status =
@@ -112,7 +304,14 @@ class ArchiveViewModel(
                                     "Не удалось загрузить архив месяцев.",
                             )
                     }
-                    .collect { financialMonths ->
+                    .collect {
+                            (financialMonths, activeFinancialMonth) ->
+                        activeFinancialMonthId =
+                            activeFinancialMonth?.id
+
+                        val previousState =
+                            _uiState.value
+
                         val archivedMonths =
                             financialMonths
                                 .sortedWith(
@@ -140,6 +339,15 @@ class ArchiveViewModel(
                                         ArchiveUiStatus.CONTENT
                                     },
                                 months = archivedMonths,
+                                isCloseMonthConfirmationVisible =
+                                    previousState
+                                        .isCloseMonthConfirmationVisible,
+                                isClosingMonth =
+                                    previousState
+                                        .isClosingMonth,
+                                closeMonthErrorMessage =
+                                    previousState
+                                        .closeMonthErrorMessage,
                                 errorMessage = null,
                             )
                     }

@@ -52,11 +52,7 @@ class NewMonthViewModel(
                 monthLabel =
                     "Определяем период…",
                 availableMonthNumbers =
-                    createAvailableMonthNumbers(
-                        year = currentYear,
-                        occupiedPeriods =
-                            emptySet(),
-                    ),
+                    createAvailableMonthNumbers(),
                 isPeriodLoading = true,
             ),
         )
@@ -167,25 +163,13 @@ class NewMonthViewModel(
                     monthLabel =
                         suggestedMonthLabel,
                     availableMonthNumbers =
-                        createAvailableMonthNumbers(
-                            year =
-                                suggestedPeriod.year,
-                            occupiedPeriods =
-                                existingPeriods,
-                        ),
+                        createAvailableMonthNumbers(),
                     periodError =
                         if (
                             suggestedPeriod in
                             existingPeriods
                         ) {
-                            if (
-                                currentMonthNumber ==
-                                MONTHS_IN_YEAR
-                            ) {
-                                "Текущий месяц уже создан."
-                            } else {
-                                "Текущий и следующий месяцы уже созданы."
-                            }
+                            "Текущий и следующий месяцы уже созданы."
                         } else {
                             null
                         },
@@ -207,6 +191,14 @@ class NewMonthViewModel(
             return
         }
 
+        val selectedPeriod =
+            createSupportedPeriods()
+                .firstOrNull { period ->
+                    period.monthNumber ==
+                            monthNumber
+                }
+                ?: return
+
         if (
             monthNumber !in
             currentState.availableMonthNumbers
@@ -214,24 +206,20 @@ class NewMonthViewModel(
             return
         }
 
-        val selectedPeriod =
-            FinancialMonthPeriod(
-                year = currentState.year,
-                monthNumber =
-                    monthNumber,
-            )
-
         val selectedMonthLabel =
             createMonthLabel(
                 monthNumber =
-                    monthNumber,
+                    selectedPeriod.monthNumber,
                 year =
-                    currentState.year,
+                    selectedPeriod.year,
             )
 
         _uiState.value =
             currentState.copy(
-                monthNumber = monthNumber,
+                year =
+                    selectedPeriod.year,
+                monthNumber =
+                    selectedPeriod.monthNumber,
                 monthLabel =
                     selectedMonthLabel,
                 periodError =
@@ -246,15 +234,8 @@ class NewMonthViewModel(
             )
     }
 
-    private fun createAvailableMonthNumbers(
-        year: Int,
-        occupiedPeriods:
-        Set<FinancialMonthPeriod>,
-    ): List<Int> {
-        if (year != currentYear) {
-            return emptyList()
-        }
-
+    private fun createAvailableMonthNumbers():
+            List<Int> {
         return createSupportedPeriods()
             .map { period ->
                 period.monthNumber
@@ -270,23 +251,32 @@ class NewMonthViewModel(
                     currentMonthNumber,
             )
 
-        if (
-            currentMonthNumber ==
-            MONTHS_IN_YEAR
-        ) {
-            return listOf(
-                currentPeriod,
-            )
-        }
-
         return listOf(
             currentPeriod,
-            FinancialMonthPeriod(
-                year = currentYear,
-                monthNumber =
-                    currentMonthNumber + 1,
+            nextPeriod(
+                period = currentPeriod,
             ),
         )
+    }
+
+    private fun nextPeriod(
+        period: FinancialMonthPeriod,
+    ): FinancialMonthPeriod {
+        return if (
+            period.monthNumber <
+            MONTHS_IN_YEAR
+        ) {
+            FinancialMonthPeriod(
+                year = period.year,
+                monthNumber =
+                    period.monthNumber + 1,
+            )
+        } else {
+            FinancialMonthPeriod(
+                year = period.year + 1,
+                monthNumber = 1,
+            )
+        }
     }
 
     private fun findNewestAvailablePeriod(
@@ -316,24 +306,10 @@ class NewMonthViewModel(
             )
 
         if (
-            selectedPeriod.year !=
-            currentYear
-        ) {
-            return "Год определяется автоматически по дате телефона."
-        }
-
-        if (
             selectedPeriod !in
             createSupportedPeriods()
         ) {
-            return if (
-                currentMonthNumber ==
-                MONTHS_IN_YEAR
-            ) {
-                "В декабре доступен только текущий месяц этого года."
-            } else {
-                "Можно выбрать только текущий или следующий месяц."
-            }
+            return "Можно выбрать только текущий или следующий месяц."
         }
 
         if (

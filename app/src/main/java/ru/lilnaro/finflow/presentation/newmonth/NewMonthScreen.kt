@@ -440,7 +440,7 @@ private fun PeriodSelectorCard(
 
             Text(
                 text = error
-                    ?: "Год определяется автоматически по дате телефона. Доступны текущий и следующий месяц.",
+                    ?: "Год определяется автоматически. Доступны текущий и следующий месяц.",
                 color = if (error == null) {
                     FinFlowTextMuted
                 } else {
@@ -661,11 +661,6 @@ private fun BudgetCard(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = enabled,
                 singleLine = true,
-                placeholder = {
-                    Text(
-                        text = "40 000",
-                    )
-                },
                 suffix = {
                     Text(
                         text = "₽",
@@ -952,7 +947,7 @@ private fun NewMonthScreenPreview() {
                         8,
                         9,
                     ),
-                initialBudgetInput = "40000",
+                initialBudgetInput = "",
                 isPeriodLoading = false,
             ),
             onAction = {},

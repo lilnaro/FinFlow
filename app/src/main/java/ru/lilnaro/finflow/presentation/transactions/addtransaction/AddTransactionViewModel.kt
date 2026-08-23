@@ -68,6 +68,9 @@ class AddTransactionViewModel(
     private var pendingCreatedCategoryId: Long? =
         null
 
+    private var transactionCommitted =
+        false
+
     init {
         observeFormData()
     }
@@ -259,10 +262,35 @@ class AddTransactionViewModel(
         activeFinancialMonthId =
             financialMonth.id
 
-        val categoryUiModels =
+        val mappedCategories =
             snapshot.categories.map { category ->
                 category.toUiModel()
             }
+
+        val builtInCategories =
+            mappedCategories.filterNot { category ->
+                category.isCustom
+            }
+
+        val customCategories =
+            mappedCategories.filter { category ->
+                category.isCustom
+            }
+
+        val categoryUiModels =
+            builtInCategories.filterNot { category ->
+                category.name.equals(
+                    other = OTHER_CATEGORY_NAME,
+                    ignoreCase = true,
+                )
+            } +
+                    builtInCategories.filter { category ->
+                        category.name.equals(
+                            other = OTHER_CATEGORY_NAME,
+                            ignoreCase = true,
+                        )
+                    } +
+                    customCategories
 
         val currentSelectedCategoryId =
             _uiState.value.selectedCategoryId
@@ -802,6 +830,7 @@ class AddTransactionViewModel(
             currentState.status !=
             AddTransactionUiStatus.CONTENT ||
             currentState.isSaving ||
+            transactionCommitted ||
             currentState.isCreatingCategory ||
             currentState.isCustomCategoryDialogVisible
         ) {
@@ -918,9 +947,14 @@ class AddTransactionViewModel(
     ) {
         when (result) {
             is AddTransactionResult.Success -> {
+                transactionCommitted = true
+
+                // Оставляем форму заблокированной до ухода
+                // с экрана, чтобы повторное нажатие не могло
+                // создать вторую транзакцию.
                 _uiState.value =
                     _uiState.value.copy(
-                        isSaving = false,
+                        isSaving = true,
                     )
 
                 _effect.send(
@@ -1157,6 +1191,9 @@ class AddTransactionViewModel(
 
         const val MAX_NOTE_LENGTH =
             120
+
+        const val OTHER_CATEGORY_NAME =
+            "Другое"
 
         val AMOUNT_INPUT_REGEX =
             Regex(

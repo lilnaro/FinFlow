@@ -16,7 +16,6 @@ import ru.lilnaro.finflow.presentation.transactions.model.TransactionsEffect
 @Composable
 fun TransactionsRoute(
     onNavigateBack: () -> Unit,
-    onNavigateToAddTransaction: () -> Unit,
     successMessage: String? = null,
     onSuccessMessageShown: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -31,10 +30,6 @@ fun TransactionsRoute(
 
     val currentOnNavigateBack by rememberUpdatedState(
         onNavigateBack,
-    )
-
-    val currentOnNavigateToAddTransaction by rememberUpdatedState(
-        onNavigateToAddTransaction,
     )
 
     val currentOnSuccessMessageShown by rememberUpdatedState(
@@ -54,10 +49,6 @@ fun TransactionsRoute(
                     currentOnNavigateBack()
                 }
 
-                TransactionsEffect.NavigateToAddTransaction -> {
-                    currentOnNavigateToAddTransaction()
-                }
-
                 is TransactionsEffect.ShowMessage -> {
                     snackbarHostState.showSnackbar(
                         message = effect.message,
@@ -72,17 +63,18 @@ fun TransactionsRoute(
             successMessage
                 ?: return@LaunchedEffect
 
-        currentOnSuccessMessageShown()
-
         snackbarHostState.showSnackbar(
             message = message,
         )
+
+        currentOnSuccessMessageShown()
     }
 
     TransactionsScreen(
         uiState = uiState,
         onAction = viewModel::onAction,
         snackbarHostState = snackbarHostState,
+        showBackButton = false,
         modifier = modifier,
     )
 }

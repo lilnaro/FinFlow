@@ -1,6 +1,13 @@
 package ru.lilnaro.finflow.presentation.assistant
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,8 +36,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -53,6 +64,9 @@ import ru.lilnaro.finflow.presentation.ui.theme.FinFlowBackground
 import ru.lilnaro.finflow.presentation.ui.theme.FinFlowBorder
 import ru.lilnaro.finflow.presentation.ui.theme.FinFlowExpense
 import ru.lilnaro.finflow.presentation.ui.theme.FinFlowIncome
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowGlowTertiary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowGlowSecondary
+import ru.lilnaro.finflow.presentation.ui.theme.FinFlowGlowPrimary
 import ru.lilnaro.finflow.presentation.ui.theme.FinFlowPrimary
 import ru.lilnaro.finflow.presentation.ui.theme.FinFlowPrimaryLight
 import ru.lilnaro.finflow.presentation.ui.theme.FinFlowSurface
@@ -67,6 +81,7 @@ import ru.lilnaro.finflow.presentation.ui.theme.FinFlowTheme
 fun AssistantScreen(
     uiState: AssistantUiState,
     onAction: (AssistantAction) -> Unit,
+    showBackButton: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -76,6 +91,8 @@ fun AssistantScreen(
                 FinFlowBackground,
             ),
     ) {
+        AssistantAuroraBackground()
+
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
@@ -126,6 +143,8 @@ fun AssistantScreen(
                     AssistantContent(
                         uiState = uiState,
                         onAction = onAction,
+                        showBackButton =
+                            showBackButton,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding),
@@ -140,6 +159,7 @@ fun AssistantScreen(
 private fun AssistantContent(
     uiState: AssistantUiState,
     onAction: (AssistantAction) -> Unit,
+    showBackButton: Boolean,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -166,6 +186,8 @@ private fun AssistantContent(
             AssistantHeader(
                 monthLabel =
                     uiState.monthLabel,
+                showBackButton =
+                    showBackButton,
                 onBackClick = {
                     onAction(
                         AssistantAction.BackClicked,
@@ -206,6 +228,7 @@ private fun AssistantContent(
 @Composable
 private fun AssistantHeader(
     monthLabel: String,
+    showBackButton: Boolean,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -217,27 +240,29 @@ private fun AssistantHeader(
         verticalAlignment =
             Alignment.CenterVertically,
     ) {
-        Surface(
-            onClick = onBackClick,
-            modifier =
-                Modifier.size(42.dp),
-            color = FinFlowSurface,
-            shape = CircleShape,
-            border = BorderStroke(
-                width = 1.dp,
-                color = FinFlowBorder,
-            ),
-        ) {
-            Box(
-                contentAlignment =
-                    Alignment.Center,
+        if (showBackButton) {
+            Surface(
+                onClick = onBackClick,
+                modifier =
+                    Modifier.size(42.dp),
+                color = FinFlowSurface,
+                shape = CircleShape,
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = FinFlowBorder,
+                ),
             ) {
-                Text(
-                    text = "←",
-                    color =
-                        FinFlowTextPrimary,
-                    fontSize = 20.sp,
-                )
+                Box(
+                    contentAlignment =
+                        Alignment.Center,
+                ) {
+                    Text(
+                        text = "←",
+                        color =
+                            FinFlowTextPrimary,
+                        fontSize = 20.sp,
+                    )
+                }
             }
         }
 
@@ -245,7 +270,13 @@ private fun AssistantHeader(
             modifier = Modifier
                 .weight(1f)
                 .padding(
-                    horizontal = 14.dp,
+                    start =
+                        if (showBackButton) {
+                            14.dp
+                        } else {
+                            0.dp
+                        },
+                    end = 14.dp,
                 ),
         ) {
             Text(
@@ -277,7 +308,7 @@ private fun AssistantHeader(
             shape = CircleShape,
         ) {
             Text(
-                text = "LOCAL",
+                text = "Ассистент",
                 modifier =
                     Modifier.padding(
                         horizontal = 10.dp,
@@ -517,7 +548,9 @@ private fun ChatCard(
                 placeholder = {
                     Text(
                         text =
-                            "Например: почему в этом месяце выросли расходы?",
+                            "Введите ваш вопрос здесь",
+                        color =
+                            FinFlowTextMuted,
                     )
                 },
                 minLines = 2,
@@ -1086,12 +1119,14 @@ private fun ChatMessagesViewport(
                 alpha = 0.34f,
             ),
         shape =
-            MaterialTheme.shapes.large,
+            RoundedCornerShape(
+                24.dp,
+            ),
         border = BorderStroke(
             width = 1.dp,
             color =
                 FinFlowBorder.copy(
-                    alpha = 0.55f,
+                    alpha = 0.42f,
                 ),
         ),
     ) {
@@ -1100,12 +1135,12 @@ private fun ChatMessagesViewport(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    horizontal = 10.dp,
-                    vertical = 10.dp,
+                    horizontal = 14.dp,
+                    vertical = 14.dp,
                 ),
             verticalArrangement =
                 Arrangement.spacedBy(
-                    9.dp,
+                    12.dp,
                 ),
         ) {
             items(
@@ -1141,7 +1176,11 @@ private fun MessageBubble(
 
     Row(
         modifier =
-            Modifier.fillMaxWidth(),
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 2.dp,
+                ),
         horizontalArrangement =
             if (isUser) {
                 Arrangement.End
@@ -1152,7 +1191,7 @@ private fun MessageBubble(
         Surface(
             modifier =
                 Modifier.widthIn(
-                    max = 300.dp,
+                    max = 314.dp,
                 ),
             color =
                 if (isUser) {
@@ -1163,14 +1202,16 @@ private fun MessageBubble(
                     FinFlowSurfaceElevated
                 },
             shape =
-                MaterialTheme.shapes.large,
+                RoundedCornerShape(
+                    20.dp,
+                ),
             border =
                 if (isUser) {
                     BorderStroke(
                         width = 1.dp,
                         color =
                             FinFlowPrimary.copy(
-                                alpha = 0.28f,
+                                alpha = 0.24f,
                             ),
                     )
                 } else {
@@ -1178,7 +1219,7 @@ private fun MessageBubble(
                         width = 1.dp,
                         color =
                             FinFlowBorder.copy(
-                                alpha = 0.72f,
+                                alpha = 0.38f,
                             ),
                     )
                 },
@@ -1186,8 +1227,8 @@ private fun MessageBubble(
             Column(
                 modifier =
                     Modifier.padding(
-                        horizontal = 13.dp,
-                        vertical = 11.dp,
+                        horizontal = 16.dp,
+                        vertical = 14.dp,
                     ),
             ) {
                 Text(
@@ -1242,21 +1283,23 @@ private fun GeneratingBubble() {
             color =
                 FinFlowSurfaceElevated,
             shape =
-                MaterialTheme.shapes.large,
+                RoundedCornerShape(
+                    20.dp,
+                ),
             border =
                 BorderStroke(
                     width = 1.dp,
                     color =
                         FinFlowBorder.copy(
-                            alpha = 0.72f,
+                            alpha = 0.38f,
                         ),
                 ),
         ) {
             Row(
                 modifier =
                     Modifier.padding(
-                        horizontal = 13.dp,
-                        vertical = 11.dp,
+                        horizontal = 16.dp,
+                        vertical = 13.dp,
                     ),
                 verticalAlignment =
                     Alignment.CenterVertically,
@@ -1374,11 +1417,11 @@ private fun EmptyState(
 ) {
     CenteredState(
         modifier = modifier,
-        symbol = "✦",
+        symbol = "+",
         title =
-            "Пока нечего анализировать",
+            "Нет активного месяца",
         description =
-            "Создайте финансовый месяц и добавьте операции. После этого FinFlow сможет отвечать на вопросы по вашим данным.",
+            "Создайте финансовый месяц, прежде чем использовать ИИ-анализ.",
         primaryText =
             "Вернуться",
         onPrimaryClick =
@@ -1697,6 +1740,137 @@ private fun AnnotatedString.Builder.appendMarkdownBold(
 
         cursor =
             boldEnd + 2
+    }
+}
+
+@Composable
+private fun AssistantAuroraBackground() {
+    val infiniteTransition =
+        rememberInfiniteTransition(
+            label = "assistantAuroraBackground",
+        )
+
+    val movement by
+    infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec =
+            infiniteRepeatable(
+                animation =
+                    tween(
+                        durationMillis = 16_000,
+                        easing = LinearEasing,
+                    ),
+                repeatMode =
+                    RepeatMode.Reverse,
+            ),
+        label = "assistantAuroraMovement",
+    )
+
+    Canvas(
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        val radius =
+            size.minDimension * 0.78f
+
+        val primaryCenter =
+            Offset(
+                x =
+                    size.width *
+                            (
+                                    0.08f +
+                                            0.15f *
+                                            movement
+                                    ),
+                y =
+                    size.height *
+                            (
+                                    0.10f +
+                                            0.05f *
+                                            movement
+                                    ),
+            )
+
+        val secondaryCenter =
+            Offset(
+                x =
+                    size.width *
+                            (
+                                    0.92f -
+                                            0.12f *
+                                            movement
+                                    ),
+                y =
+                    size.height *
+                            (
+                                    0.48f +
+                                            0.08f *
+                                            movement
+                                    ),
+            )
+
+        val tertiaryCenter =
+            Offset(
+                x =
+                    size.width *
+                            (
+                                    0.25f +
+                                            0.16f *
+                                            movement
+                                    ),
+                y =
+                    size.height *
+                            (
+                                    0.92f -
+                                            0.08f *
+                                            movement
+                                    ),
+            )
+
+        drawCircle(
+            brush =
+                Brush.radialGradient(
+                    colors =
+                        listOf(
+                            FinFlowGlowPrimary,
+                            Color.Transparent,
+                        ),
+                    center = primaryCenter,
+                    radius = radius,
+                ),
+            radius = radius,
+            center = primaryCenter,
+        )
+
+        drawCircle(
+            brush =
+                Brush.radialGradient(
+                    colors =
+                        listOf(
+                            FinFlowGlowSecondary,
+                            Color.Transparent,
+                        ),
+                    center = secondaryCenter,
+                    radius = radius,
+                ),
+            radius = radius,
+            center = secondaryCenter,
+        )
+
+        drawCircle(
+            brush =
+                Brush.radialGradient(
+                    colors =
+                        listOf(
+                            FinFlowGlowTertiary,
+                            Color.Transparent,
+                        ),
+                    center = tertiaryCenter,
+                    radius = radius,
+                ),
+            radius = radius,
+            center = tertiaryCenter,
+        )
     }
 }
 

@@ -25,6 +25,7 @@ import ru.lilnaro.finflow.domain.usecase.AskFinancialAssistantUseCase
 import ru.lilnaro.finflow.domain.usecase.CancelFinancialAiModelDownloadUseCase
 import ru.lilnaro.finflow.domain.usecase.GetFinancialAiModelDownloadInfoUseCase
 import ru.lilnaro.finflow.domain.usecase.InitializeFinancialAiUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveActiveFinancialMonthUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveFinancialAiModelDownloadUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveFinancialAnalysisContextUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveFinancialAnalyticsUseCase
@@ -41,6 +42,8 @@ import ru.lilnaro.finflow.presentation.assistant.model.AssistantUiState
 import ru.lilnaro.finflow.presentation.assistant.model.AssistantUiStatus
 
 class AssistantViewModel(
+    private val observeActiveFinancialMonthUseCase:
+    ObserveActiveFinancialMonthUseCase,
     private val observeFinancialAnalysisContextUseCase:
     ObserveFinancialAnalysisContextUseCase,
     private val observeFinancialAnalyticsUseCase:
@@ -180,18 +183,23 @@ class AssistantViewModel(
         observationJob =
             viewModelScope.launch {
                 combine(
+                    observeActiveFinancialMonthUseCase(),
                     observeFinancialAnalysisContextUseCase(),
                     observeFinancialAnalyticsUseCase(
                         nowMillis = nowMillis,
                     ),
                 ) {
+                        activeMonth,
                         analysisContext:
                         FinancialAnalysisContext,
                         analyticsSnapshot:
                         FinancialAnalyticsSnapshot,
                     ->
-                    analysisContext to
-                            analyticsSnapshot
+                    Triple(
+                        activeMonth,
+                        analysisContext,
+                        analyticsSnapshot,
+                    )
                 }
                     .catch {
                         _uiState.value =
@@ -204,10 +212,35 @@ class AssistantViewModel(
                     }
                     .collect {
                             (
+                                activeMonth,
                                 analysisContext,
                                 analyticsSnapshot,
                             ),
                         ->
+                        if (activeMonth == null) {
+                            latestAnalysisContext = null
+                            latestAnalytics = null
+
+                            generationJob?.cancel()
+
+                            _uiState.value =
+                                _uiState.value.copy(
+                                    status =
+                                        AssistantUiStatus.EMPTY,
+                                    monthLabel = "",
+                                    isFocusClosed = false,
+                                    pace = null,
+                                    questionInput = "",
+                                    messages =
+                                        emptyList(),
+                                    isGenerating = false,
+                                    chatErrorMessage = null,
+                                    errorMessage = null,
+                                )
+
+                            return@collect
+                        }
+
                         latestAnalysisContext =
                             analysisContext
 

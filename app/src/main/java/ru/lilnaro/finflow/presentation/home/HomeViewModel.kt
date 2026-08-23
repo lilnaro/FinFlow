@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import java.math.BigDecimal
 import java.math.MathContext
 import java.util.Calendar
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -12,24 +13,28 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import ru.lilnaro.finflow.domain.model.MonthSummary
+import ru.lilnaro.finflow.domain.model.FinancialMonth
+import ru.lilnaro.finflow.domain.model.FinancialMonthReport
 import ru.lilnaro.finflow.domain.model.result.CloseFinancialMonthResult
 import ru.lilnaro.finflow.domain.usecase.CloseFinancialMonthUseCase
 import ru.lilnaro.finflow.domain.usecase.ObserveActiveFinancialMonthUseCase
-import ru.lilnaro.finflow.domain.usecase.ObserveActiveMonthSummaryUseCase
+import ru.lilnaro.finflow.domain.usecase.ObserveFinancialMonthReportUseCase
 import ru.lilnaro.finflow.presentation.home.model.HomeAction
 import ru.lilnaro.finflow.presentation.home.model.HomeEffect
+import ru.lilnaro.finflow.presentation.home.model.HomeRecentTransactionUiModel
 import ru.lilnaro.finflow.presentation.home.model.HomeUiState
 import ru.lilnaro.finflow.presentation.home.model.HomeUiStatus
 
 class HomeViewModel(
     private val observeActiveFinancialMonthUseCase:
     ObserveActiveFinancialMonthUseCase,
-    private val observeActiveMonthSummaryUseCase:
-    ObserveActiveMonthSummaryUseCase,
+    private val observeFinancialMonthReportUseCase:
+    ObserveFinancialMonthReportUseCase,
     private val closeFinancialMonthUseCase:
     CloseFinancialMonthUseCase,
 ) : ViewModel() {
@@ -275,6 +280,7 @@ class HomeViewModel(
             )
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeHome() {
         observationJob?.cancel()
 
@@ -287,12 +293,28 @@ class HomeViewModel(
 
         observationJob =
             viewModelScope.launch {
-                combine(
-                    observeActiveFinancialMonthUseCase(),
-                    observeActiveMonthSummaryUseCase(),
-                ) { financialMonth, monthSummary ->
-                    financialMonth to monthSummary
-                }
+                observeActiveFinancialMonthUseCase()
+                    .flatMapLatest { financialMonth ->
+                        if (financialMonth == null) {
+                            flowOf(
+                                HomeSnapshot(
+                                    financialMonth = null,
+                                    report = null,
+                                ),
+                            )
+                        } else {
+                            observeFinancialMonthReportUseCase(
+                                financialMonthId =
+                                    financialMonth.id,
+                            ).map { report ->
+                                HomeSnapshot(
+                                    financialMonth =
+                                        financialMonth,
+                                    report = report,
+                                )
+                            }
+                        }
+                    }
                     .catch {
                         activeFinancialMonthId = null
 
@@ -306,12 +328,12 @@ class HomeViewModel(
                                     "Не удалось загрузить данные. Попробуйте ещё раз.",
                             )
                     }
-                    .collect {
-                            (
-                                financialMonth,
-                                monthSummary,
-                            ),
-                        ->
+                    .collect { snapshot ->
+                        val financialMonth =
+                            snapshot.financialMonth
+
+                        val report =
+                            snapshot.report
 
                         activeFinancialMonthId =
                             financialMonth?.id
@@ -331,10 +353,7 @@ class HomeViewModel(
                                     )
                                 }
 
-                                monthSummary == null ||
-                                        monthSummary
-                                            .financialMonthId !=
-                                        financialMonth.id -> {
+                                report == null -> {
                                     HomeUiState(
                                         status =
                                             HomeUiStatus.LOADING,
@@ -351,11 +370,7 @@ class HomeViewModel(
 
                                 else -> {
                                     createContentState(
-                                        monthNumber =
-                                            financialMonth
-                                                .monthNumber,
-                                        monthSummary =
-                                            monthSummary,
+                                        report = report,
                                     )
                                 }
                             }
@@ -381,46 +396,84 @@ class HomeViewModel(
     }
 
     private fun createContentState(
-        monthNumber: Int,
-        monthSummary: MonthSummary,
+        report: FinancialMonthReport,
     ): HomeUiState {
-        val currentBalance =
-            monthSummary.initialBudget
-                .add(monthSummary.totalIncome)
-                .subtract(monthSummary.totalExpense)
-
         val balanceChange =
-            currentBalance.subtract(
-                monthSummary.initialBudget,
+            report.finalBalance.subtract(
+                report.initialBudget,
             )
 
         val balanceChangePercent =
             calculatePercent(
                 value = balanceChange,
-                base = monthSummary.initialBudget,
+                base = report.initialBudget,
             )
 
         val budgetRemainingPercent =
             calculatePercent(
-                value = currentBalance,
-                base = monthSummary.initialBudget,
+                value = report.finalBalance,
+                base = report.initialBudget,
             )
+
+        val topExpenseCategory =
+            report.expenseBreakdown
+                .firstOrNull()
+
+        val recentTransactions =
+            report.transactions
+                .take(RECENT_TRANSACTION_LIMIT)
+                .map { transaction ->
+                    HomeRecentTransactionUiModel(
+                        id = transaction.id,
+                        amount = transaction.amount,
+                        type = transaction.type,
+                        categoryName =
+                            transaction.categoryName
+                                ?: "Без категории",
+                        note = transaction.note,
+                        createdAtMillis =
+                            transaction.createdAtMillis,
+                    )
+                }
 
         return HomeUiState(
             status = HomeUiStatus.CONTENT,
             greeting = createGreeting(),
             monthLabel = createMonthLabel(
-                monthNumber = monthNumber,
+                monthNumber =
+                    report.financialMonth
+                        .monthNumber,
             ),
             initialBudget =
-                monthSummary.initialBudget,
-            currentBalance = currentBalance,
-            totalIncome = monthSummary.totalIncome,
-            totalExpense = monthSummary.totalExpense,
+                report.initialBudget,
+            currentBalance =
+                report.finalBalance,
+            totalIncome =
+                report.totalIncome,
+            totalExpense =
+                report.totalExpense,
             balanceChangePercent =
                 balanceChangePercent,
             budgetRemainingPercent =
                 budgetRemainingPercent,
+            transactionCount =
+                report.transactionCount,
+            topExpenseCategoryName =
+                topExpenseCategory
+                    ?.let { category ->
+                        category.categoryName
+                            ?: "Без категории"
+                    },
+            topExpenseCategoryAmount =
+                topExpenseCategory
+                    ?.amount
+                    ?: BigDecimal.ZERO,
+            topExpenseSharePercent =
+                topExpenseCategory
+                    ?.sharePercent
+                    ?: 0.0,
+            recentTransactions =
+                recentTransactions,
             errorMessage = null,
         )
     }
@@ -472,7 +525,14 @@ class HomeViewModel(
         }
     }
 
+    private data class HomeSnapshot(
+        val financialMonth: FinancialMonth?,
+        val report: FinancialMonthReport?,
+    )
+
     private companion object {
+
+        const val RECENT_TRANSACTION_LIMIT = 5
 
         val PERCENT_MULTIPLIER =
             BigDecimal("100")
