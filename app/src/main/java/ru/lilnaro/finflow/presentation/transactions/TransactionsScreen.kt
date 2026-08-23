@@ -95,6 +95,7 @@ fun TransactionsScreen(
     uiState: TransactionsUiState,
     onAction: (TransactionsAction) -> Unit,
     snackbarHostState: SnackbarHostState,
+    showBackButton: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -111,24 +112,6 @@ fun TransactionsScreen(
                 SnackbarHost(
                     hostState = snackbarHostState,
                 )
-            },
-            floatingActionButton = {
-                if (
-                    uiState.status in listOf(
-                        TransactionsUiStatus.EMPTY,
-                        TransactionsUiStatus.CONTENT,
-                    ) &&
-                    !uiState.isSelectionMode
-                ) {
-                    AddTransactionButton(
-                        onClick = {
-                            onAction(
-                                TransactionsAction
-                                    .AddTransactionClicked,
-                            )
-                        },
-                    )
-                }
             },
         ) { innerPadding ->
             Box(
@@ -152,6 +135,8 @@ fun TransactionsScreen(
                     TransactionsHeader(
                         uiState = uiState,
                         onAction = onAction,
+                        showBackButton =
+                            showBackButton,
                     )
 
                     Spacer(
@@ -225,6 +210,7 @@ fun TransactionsScreen(
 private fun TransactionsHeader(
     uiState: TransactionsUiState,
     onAction: (TransactionsAction) -> Unit,
+    showBackButton: Boolean,
 ) {
     if (uiState.isSelectionMode) {
         Row(
@@ -278,20 +264,30 @@ private fun TransactionsHeader(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            HeaderCircleButton(
-                text = "←",
-                onClick = {
-                    onAction(
-                        TransactionsAction.BackClicked,
-                    )
-                },
-            )
+            if (showBackButton) {
+                HeaderCircleButton(
+                    text = "←",
+                    onClick = {
+                        onAction(
+                            TransactionsAction.BackClicked,
+                        )
+                    },
+                )
+            }
 
             Text(
                 text = "Транзакции",
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 14.dp),
+                    .padding(
+                        start =
+                            if (showBackButton) {
+                                14.dp
+                            } else {
+                                0.dp
+                            },
+                        end = 14.dp,
+                    ),
                 color = FinFlowTextPrimary,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
@@ -382,7 +378,7 @@ private fun TransactionsDataContent(
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
-            bottom = 110.dp,
+            bottom = 24.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(
             12.dp,
@@ -1110,43 +1106,6 @@ private fun StateCard(
                 Alignment.CenterHorizontally,
             content = content,
         )
-    }
-}
-
-@Composable
-private fun AddTransactionButton(
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        color = FinFlowPrimary,
-        contentColor = FinFlowTextPrimary,
-        shape = MaterialTheme.shapes.large,
-        shadowElevation = 10.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = 18.dp,
-                vertical = 14.dp,
-            ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "+",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Medium,
-            )
-
-            Spacer(
-                modifier = Modifier.size(7.dp),
-            )
-
-            Text(
-                text = "Добавить",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
     }
 }
 

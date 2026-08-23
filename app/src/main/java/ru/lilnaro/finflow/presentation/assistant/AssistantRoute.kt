@@ -37,6 +37,7 @@ fun AssistantRoute(
     AssistantScreen(
         uiState = uiState,
         onAction = viewModel::onAction,
+        showBackButton = false,
         modifier = modifier,
     )
 }

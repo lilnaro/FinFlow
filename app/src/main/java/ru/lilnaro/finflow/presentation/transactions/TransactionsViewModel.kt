@@ -74,10 +74,6 @@ class TransactionsViewModel(
                 handleBackClick()
             }
 
-            TransactionsAction.AddTransactionClicked -> {
-                handleAddTransactionClick()
-            }
-
             TransactionsAction.RetryClicked -> {
                 observeTransactions()
             }
@@ -287,32 +283,6 @@ class TransactionsViewModel(
                     TransactionsEffect.NavigateBack,
                 )
             }
-        }
-    }
-
-    private fun handleAddTransactionClick() {
-        when (_uiState.value.status) {
-            TransactionsUiStatus.EMPTY,
-            TransactionsUiStatus.CONTENT,
-                -> {
-                _effect.trySend(
-                    TransactionsEffect
-                        .NavigateToAddTransaction,
-                )
-            }
-
-            TransactionsUiStatus.NO_ACTIVE_MONTH -> {
-                _effect.trySend(
-                    TransactionsEffect.ShowMessage(
-                        message =
-                            "Сначала создайте финансовый месяц.",
-                    ),
-                )
-            }
-
-            TransactionsUiStatus.LOADING,
-            TransactionsUiStatus.ERROR,
-                -> Unit
         }
     }
 

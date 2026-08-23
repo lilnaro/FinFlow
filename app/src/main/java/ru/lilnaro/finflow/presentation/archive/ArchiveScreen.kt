@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -84,6 +87,7 @@ import ru.lilnaro.finflow.presentation.ui.theme.FinFlowTheme
 fun ArchiveScreen(
     uiState: ArchiveUiState,
     onAction: (ArchiveAction) -> Unit,
+    showBackButton: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -121,11 +125,33 @@ fun ArchiveScreen(
                         ),
                 ) {
                     ArchiveHeader(
+                        showBackButton =
+                            showBackButton,
                         onBackClick = {
                             onAction(
                                 ArchiveAction.BackClicked,
                             )
                         },
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(16.dp),
+                    )
+
+                    ArchiveNewMonthButton(
+                        onClick = {
+                            onAction(
+                                ArchiveAction.NewMonthClicked,
+                            )
+                        },
+                        enabled =
+                            !uiState.isClosingMonth &&
+                                    (
+                                            uiState.status ==
+                                                    ArchiveUiStatus.EMPTY ||
+                                                    uiState.status ==
+                                                    ArchiveUiStatus.CONTENT
+                                            ),
                     )
 
                     Spacer(
@@ -180,6 +206,25 @@ fun ArchiveScreen(
                     }
                 }
             }
+        }
+
+        if (uiState.isCloseMonthConfirmationVisible) {
+            ArchiveCloseMonthConfirmationDialog(
+                isClosing =
+                    uiState.isClosingMonth,
+                errorMessage =
+                    uiState.closeMonthErrorMessage,
+                onConfirm = {
+                    onAction(
+                        ArchiveAction.CloseMonthConfirmed,
+                    )
+                },
+                onCancel = {
+                    onAction(
+                        ArchiveAction.CloseMonthCancelled,
+                    )
+                },
+            )
         }
     }
 }
@@ -298,7 +343,7 @@ private fun ArchiveMonthDetailsHeader(
     ) {
         Surface(
             onClick = onBackClick,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(44.dp),
             color =
                 FinFlowSurfaceElevated.copy(
                     alpha = 0.90f,
@@ -310,23 +355,20 @@ private fun ArchiveMonthDetailsHeader(
             ),
         ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier =
+                    Modifier.fillMaxSize(),
                 contentAlignment =
                     Alignment.Center,
             ) {
                 Text(
                     text = "←",
-                    modifier = Modifier.offset(
-                        x = (-1).dp,
-                        y = (-1).dp,
-                    ),
                     color = FinFlowTextPrimary,
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium,
+                    fontSize = 25.sp,
+                    lineHeight = 25.sp,
                     fontWeight =
-                        FontWeight.Medium,
-                    textAlign = TextAlign.Center,
+                        FontWeight.Bold,
+                    textAlign =
+                        TextAlign.Center,
                 )
             }
         }
@@ -521,12 +563,6 @@ private fun ArchiveMonthDetailsContent(
                     transaction = transaction,
                 )
             }
-        }
-
-        item(
-            key = "month_history_note",
-        ) {
-            ArchiveMonthHistoryCard()
         }
 
         item(
@@ -1112,86 +1148,6 @@ private fun ArchivePeriodRow(
 }
 
 @Composable
-private fun ArchiveMonthHistoryCard() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color =
-            FinFlowSurfaceElevated.copy(
-                alpha = 0.82f,
-            ),
-        shape =
-            MaterialTheme.shapes.large,
-        border = BorderStroke(
-            width = 1.dp,
-            color =
-                FinFlowBorder.copy(
-                    alpha = 0.65f,
-                ),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment =
-                Alignment.CenterVertically,
-        ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                color =
-                    FinFlowPrimary.copy(
-                        alpha = 0.14f,
-                    ),
-                shape = CircleShape,
-            ) {
-                Box(
-                    contentAlignment =
-                        Alignment.Center,
-                ) {
-                    Text(
-                        text = "i",
-                        color =
-                            FinFlowPrimaryLight,
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-
-            Spacer(
-                modifier = Modifier.size(12.dp),
-            )
-
-            Column {
-                Text(
-                    text = "История месяца сохранена",
-                    color = FinFlowTextPrimary,
-                    style =
-                        MaterialTheme.typography
-                            .titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-
-                Spacer(
-                    modifier = Modifier.height(3.dp),
-                )
-
-                Text(
-                    text =
-                        "Эти данные будут доступны FinFlow для будущих отчётов и локального финансового анализа.",
-                    color = FinFlowTextSecondary,
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun ArchiveMonthNotFoundState(
     modifier: Modifier = Modifier,
 ) {
@@ -1251,7 +1207,154 @@ private fun ArchiveMonthNotFoundState(
 }
 
 @Composable
+private fun ArchiveNewMonthButton(
+    onClick: () -> Unit,
+    enabled: Boolean,
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        enabled = enabled,
+        shape = MaterialTheme.shapes.large,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = FinFlowPrimary,
+            contentColor = FinFlowTextPrimary,
+            disabledContainerColor =
+                FinFlowSurfaceSoft,
+            disabledContentColor =
+                FinFlowTextMuted,
+        ),
+    ) {
+        Text(
+            text = "+",
+            modifier = Modifier.padding(
+                end = 8.dp,
+            ),
+            style =
+                MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Medium,
+        )
+
+        Text(
+            text = "Новый месяц",
+            style =
+                MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun ArchiveCloseMonthConfirmationDialog(
+    isClosing: Boolean,
+    errorMessage: String?,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = {
+            if (!isClosing) {
+                onCancel()
+            }
+        },
+        containerColor =
+            FinFlowSurfaceElevated,
+        title = {
+            Text(
+                text =
+                    "Завершить текущий месяц?",
+                color = FinFlowTextPrimary,
+                style =
+                    MaterialTheme.typography.titleLarge,
+                fontWeight =
+                    FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text =
+                        "Чтобы начать новый финансовый месяц, текущий нужно завершить. Все его транзакции сохранятся и будут доступны в архиве.",
+                    color =
+                        FinFlowTextSecondary,
+                    style =
+                        MaterialTheme.typography.bodyMedium,
+                )
+
+                if (errorMessage != null) {
+                    Spacer(
+                        modifier =
+                            Modifier.height(12.dp),
+                    )
+
+                    Text(
+                        text = errorMessage,
+                        color = FinFlowExpense,
+                        style =
+                            MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isClosing,
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor =
+                            FinFlowPrimary,
+                        contentColor =
+                            FinFlowTextPrimary,
+                    ),
+            ) {
+                if (isClosing) {
+                    CircularProgressIndicator(
+                        modifier =
+                            Modifier.size(18.dp),
+                        color =
+                            FinFlowTextPrimary,
+                        strokeWidth = 2.dp,
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.size(8.dp),
+                    )
+                }
+
+                Text(
+                    text =
+                        if (isClosing) {
+                            "Завершаем..."
+                        } else {
+                            "Завершить и продолжить"
+                        },
+                    fontWeight =
+                        FontWeight.SemiBold,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onCancel,
+                enabled = !isClosing,
+            ) {
+                Text(
+                    text = "Отмена",
+                    color =
+                        FinFlowTextSecondary,
+                )
+            }
+        },
+    )
+}
+
+@Composable
 private fun ArchiveHeader(
+    showBackButton: Boolean,
     onBackClick: () -> Unit,
 ) {
     Row(
@@ -1259,38 +1362,40 @@ private fun ArchiveHeader(
         verticalAlignment =
             Alignment.CenterVertically,
     ) {
-        Surface(
-            onClick = onBackClick,
-            modifier = Modifier.size(40.dp),
-            color =
-                FinFlowSurfaceElevated.copy(
-                    alpha = 0.90f,
-                ),
-            shape = CircleShape,
-            border = BorderStroke(
-                width = 1.dp,
-                color = FinFlowBorder,
-            ),
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment =
-                    Alignment.Center,
-            ) {
-                Text(
-                    text = "←",
-                    modifier = Modifier.offset(
-                        x = (-1).dp,
-                        y = (-1).dp,
+        if (showBackButton) {
+            Surface(
+                onClick = onBackClick,
+                modifier = Modifier.size(40.dp),
+                color =
+                    FinFlowSurfaceElevated.copy(
+                        alpha = 0.90f,
                     ),
-                    color = FinFlowTextPrimary,
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium,
-                    fontWeight =
-                        FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                )
+                shape = CircleShape,
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = FinFlowBorder,
+                ),
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment =
+                        Alignment.Center,
+                ) {
+                    Text(
+                        text = "←",
+                        modifier = Modifier.offset(
+                            x = (-1).dp,
+                            y = (-1).dp,
+                        ),
+                        color = FinFlowTextPrimary,
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        fontWeight =
+                            FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
 
@@ -1298,7 +1403,13 @@ private fun ArchiveHeader(
             modifier = Modifier
                 .weight(1f)
                 .padding(
-                    horizontal = 14.dp,
+                    start =
+                        if (showBackButton) {
+                            14.dp
+                        } else {
+                            0.dp
+                        },
+                    end = 14.dp,
                 ),
         ) {
             Text(
@@ -1321,6 +1432,8 @@ private fun ArchiveHeader(
         }
 
         Surface(
+            modifier =
+                Modifier.size(44.dp),
             color =
                 FinFlowIncome.copy(
                     alpha = 0.12f,
@@ -1334,18 +1447,84 @@ private fun ArchiveHeader(
                     ),
             ),
         ) {
-            Text(
-                text = "◷",
-                modifier = Modifier.padding(
-                    horizontal = 12.dp,
-                    vertical = 8.dp,
-                ),
-                color = FinFlowIncome,
-                style =
-                    MaterialTheme.typography
-                        .titleMedium,
-            )
+            Box(
+                modifier =
+                    Modifier.fillMaxSize(),
+                contentAlignment =
+                    Alignment.Center,
+            ) {
+                ArchiveClockIcon(
+                    color = FinFlowIncome,
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun ArchiveClockIcon(
+    color: Color,
+    sizeDp: Int = 25,
+) {
+    Canvas(
+        modifier =
+            Modifier.size(
+                sizeDp.dp,
+            ),
+    ) {
+        val strokeWidth =
+            2.2.dp.toPx()
+
+        val center =
+            Offset(
+                x = size.width / 2f,
+                y = size.height / 2f,
+            )
+
+        drawCircle(
+            color = color,
+            radius =
+                size.minDimension * 0.36f,
+            center = center,
+            style =
+                androidx.compose.ui.graphics
+                    .drawscope.Stroke(
+                        width = strokeWidth,
+                    ),
+        )
+
+        drawLine(
+            color = color,
+            start = center,
+            end =
+                Offset(
+                    x = center.x,
+                    y =
+                        center.y -
+                                size.height *
+                                0.19f,
+                ),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+
+        drawLine(
+            color = color,
+            start = center,
+            end =
+                Offset(
+                    x =
+                        center.x +
+                                size.width *
+                                0.16f,
+                    y =
+                        center.y +
+                                size.height *
+                                0.10f,
+                ),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
     }
 }
 
@@ -1442,19 +1621,6 @@ private fun ArchiveSummaryCard(
                         FontWeight.SemiBold,
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(4.dp),
-                )
-
-                Text(
-                    text =
-                        "Закрытые месяцы сохраняются в Room",
-                    color = FinFlowTextSecondary,
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                )
             }
 
             Surface(
@@ -1755,13 +1921,10 @@ private fun ArchiveEmptyState(
                 contentAlignment =
                     Alignment.Center,
             ) {
-                Text(
-                    text = "◷",
+                ArchiveClockIcon(
                     color =
                         FinFlowPrimaryLight,
-                    style =
-                        MaterialTheme.typography
-                            .headlineMedium,
+                    sizeDp = 28,
                 )
             }
         }

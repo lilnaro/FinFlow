@@ -436,20 +436,16 @@ private fun AmountCard(
                     )
                 },
                 isError = amountError != null,
-                supportingText = if (amountError != null) {
-                    {
-                        Text(
-                            text = amountError,
-                        )
-                    }
-                } else {
-                    {
-                        Text(
-                            text =
-                                "Можно использовать запятую или точку.",
-                        )
-                    }
-                },
+                supportingText =
+                    if (amountError != null) {
+                        {
+                            Text(
+                                text = amountError,
+                            )
+                        }
+                    } else {
+                        null
+                    },
                 textStyle =
                     MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold,
@@ -825,11 +821,6 @@ private fun CustomCategoryDialog(
                             text = "Название",
                         )
                     },
-                    placeholder = {
-                        Text(
-                            text = "Например: Кофейни",
-                        )
-                    },
                     isError =
                         uiState.customCategoryNameError !=
                                 null,
@@ -898,7 +889,7 @@ private fun CustomCategoryDialog(
 
                 Text(
                     text =
-                        "Она поможет сохранить структуру категорий FinFlow.",
+                        "Выберите на что примерно похожа ваша новая категория из заданного списка",
                     color = FinFlowTextMuted,
                     style =
                         MaterialTheme.typography.bodySmall,
@@ -1155,12 +1146,6 @@ private fun NoteField(
             enabled = enabled,
             minLines = 3,
             maxLines = 4,
-            placeholder = {
-                Text(
-                    text =
-                        "Например: продукты на неделю",
-                )
-            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Text,
                 imeAction = ImeAction.Done,

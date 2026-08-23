@@ -4,8 +4,6 @@ sealed interface TransactionsAction {
 
     data object BackClicked : TransactionsAction
 
-    data object AddTransactionClicked : TransactionsAction
-
     data object RetryClicked : TransactionsAction
 
     data class FilterChanged(

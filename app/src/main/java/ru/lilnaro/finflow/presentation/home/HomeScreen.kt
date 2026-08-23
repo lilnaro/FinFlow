@@ -52,6 +52,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -59,9 +62,13 @@ import androidx.compose.ui.unit.dp
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+import ru.lilnaro.finflow.domain.model.TransactionType
 import ru.lilnaro.finflow.presentation.home.model.HomeAction
+import ru.lilnaro.finflow.presentation.home.model.HomeRecentTransactionUiModel
 import ru.lilnaro.finflow.presentation.home.model.HomeUiState
 import ru.lilnaro.finflow.presentation.home.model.HomeUiStatus
 import ru.lilnaro.finflow.presentation.home.style.HomeColors
@@ -105,10 +112,22 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .widthIn(max = 520.dp),
                 ) {
-                    HomeHeader(
-                        greeting = uiState.greeting,
-                        monthLabel = uiState.monthLabel,
-                    )
+                    if (
+                        uiState.status ==
+                        HomeUiStatus.NO_ACTIVE_MONTH
+                    ) {
+                        EmptyMonthAnimatedHeader(
+                            greeting =
+                                uiState.greeting,
+                        )
+                    } else {
+                        HomeHeader(
+                            greeting =
+                                uiState.greeting,
+                            monthLabel =
+                                uiState.monthLabel,
+                        )
+                    }
 
                     Spacer(
                         modifier = Modifier.height(24.dp),
@@ -146,7 +165,6 @@ fun HomeScreen(
                                 HomeUiStatus.CONTENT -> {
                                     HomeContent(
                                         uiState = uiState,
-                                        onAction = onAction,
                                     )
                                 }
 
@@ -358,9 +376,177 @@ private fun HomeHeader(
 }
 
 @Composable
+private fun EmptyMonthAnimatedHeader(
+    greeting: String,
+) {
+    val transition =
+        rememberInfiniteTransition(
+            label =
+                "emptyMonthBrandTransition",
+        )
+
+    val progress by
+    transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec =
+            infiniteRepeatable(
+                animation =
+                    tween(
+                        durationMillis = 6_200,
+                        easing =
+                            LinearEasing,
+                    ),
+                repeatMode =
+                    RepeatMode.Restart,
+            ),
+        label =
+            "emptyMonthBrandProgress",
+    )
+
+    val finAlpha =
+        emptyBrandAlpha(
+            progress = progress,
+            start = 0.04f,
+        )
+
+    val flowAlpha =
+        emptyBrandAlpha(
+            progress = progress,
+            start = 0.16f,
+        )
+
+    val greetingAlpha =
+        emptyBrandAlpha(
+            progress = progress,
+            start = 0.28f,
+        )
+
+    Column(
+        modifier =
+            Modifier.fillMaxWidth(),
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
+    ) {
+        Row(
+            verticalAlignment =
+                Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Fin",
+                modifier =
+                    Modifier.graphicsLayer {
+                        alpha = finAlpha
+                        scaleX =
+                            0.92f +
+                                    0.08f *
+                                    finAlpha
+                        scaleY =
+                            0.92f +
+                                    0.08f *
+                                    finAlpha
+                    },
+                color =
+                    HomeColors.TextPrimary,
+                fontSize = 36.sp,
+                fontWeight =
+                    FontWeight.Bold,
+            )
+
+            Text(
+                text = "Flow",
+                modifier =
+                    Modifier.graphicsLayer {
+                        alpha = flowAlpha
+                        scaleX =
+                            0.92f +
+                                    0.08f *
+                                    flowAlpha
+                        scaleY =
+                            0.92f +
+                                    0.08f *
+                                    flowAlpha
+                    },
+                color =
+                    HomeColors.TextPrimary,
+                fontSize = 36.sp,
+                fontWeight =
+                    FontWeight.Bold,
+            )
+        }
+
+        Spacer(
+            modifier =
+                Modifier.height(1.dp),
+        )
+
+        Text(
+            text =
+                greeting.ifBlank {
+                    "Ваш финансовый обзор"
+                },
+            modifier =
+                Modifier.graphicsLayer {
+                    alpha =
+                        greetingAlpha
+                    scaleX =
+                        0.96f +
+                                0.04f *
+                                greetingAlpha
+                    scaleY =
+                        0.96f +
+                                0.04f *
+                                greetingAlpha
+                },
+            color =
+                HomeColors.TextSecondary,
+            fontSize = 16.sp,
+            fontWeight =
+                FontWeight.Medium,
+            textAlign =
+                TextAlign.Center,
+        )
+    }
+}
+
+private fun emptyBrandAlpha(
+    progress: Float,
+    start: Float,
+): Float {
+    val reveal =
+        (
+                (progress - start) /
+                        0.10f
+                )
+            .coerceIn(
+                minimumValue = 0f,
+                maximumValue = 1f,
+            )
+
+    val fadeOut =
+        if (progress <= 0.86f) {
+            1f
+        } else {
+            (
+                    1f -
+                            (
+                                    progress -
+                                            0.86f
+                                    ) /
+                            0.10f
+                    )
+                .coerceIn(
+                    minimumValue = 0f,
+                    maximumValue = 1f,
+                )
+        }
+
+    return reveal * fadeOut
+}
+
+@Composable
 private fun HomeContent(
     uiState: HomeUiState,
-    onAction: (HomeAction) -> Unit,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(
@@ -381,8 +567,20 @@ private fun HomeContent(
             totalExpense = uiState.totalExpense,
         )
 
-        QuickActions(
-            onAction = onAction,
+        HomeAnalyticsCard(
+            transactionCount =
+                uiState.transactionCount,
+            topExpenseCategoryName =
+                uiState.topExpenseCategoryName,
+            topExpenseCategoryAmount =
+                uiState.topExpenseCategoryAmount,
+            topExpenseSharePercent =
+                uiState.topExpenseSharePercent,
+        )
+
+        RecentTransactionsCard(
+            transactions =
+                uiState.recentTransactions,
         )
 
         Spacer(
@@ -643,6 +841,474 @@ private fun MetricCard(
 }
 
 @Composable
+private fun HomeAnalyticsCard(
+    transactionCount: Int,
+    topExpenseCategoryName: String?,
+    topExpenseCategoryAmount: BigDecimal,
+    topExpenseSharePercent: Double,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = HomeColors.Surface.copy(
+            alpha = 0.90f,
+        ),
+        shape = MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(
+            width = 1.dp,
+            color = HomeColors.Border.copy(
+                alpha = 0.72f,
+            ),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+        ) {
+            Text(
+                text = "Аналитика месяца",
+                color = HomeColors.TextPrimary,
+                style =
+                    MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+                verticalAlignment =
+                    Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = "Операций",
+                        color = HomeColors.TextSecondary,
+                        style =
+                            MaterialTheme.typography.bodySmall,
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(3.dp),
+                    )
+
+                    Text(
+                        text = transactionCount.toString(),
+                        color = HomeColors.TextPrimary,
+                        style =
+                            MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                if (
+                    topExpenseCategoryName != null &&
+                    topExpenseCategoryAmount >
+                    BigDecimal.ZERO
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 22.dp,
+                            ),
+                        horizontalAlignment =
+                            Alignment.End,
+                    ) {
+                        Text(
+                            text = "Главная статья расходов",
+                            color = HomeColors.TextSecondary,
+                            style =
+                                MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.End,
+                        )
+
+                        Spacer(
+                            modifier = Modifier.height(3.dp),
+                        )
+
+                        Text(
+                            text = topExpenseCategoryName,
+                            color = HomeColors.Expense,
+                            style =
+                                MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.End,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            if (
+                topExpenseCategoryName != null &&
+                topExpenseCategoryAmount >
+                BigDecimal.ZERO
+            ) {
+                Spacer(
+                    modifier = Modifier.height(14.dp),
+                )
+
+                val share =
+                    topExpenseSharePercent
+                        .coerceIn(
+                            minimumValue = 0.0,
+                            maximumValue = 100.0,
+                        )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp)
+                        .clip(CircleShape)
+                        .background(
+                            HomeColors.SurfaceSoft,
+                        ),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(
+                                (share / 100.0)
+                                    .toFloat(),
+                            )
+                            .clip(CircleShape)
+                            .background(
+                                HomeColors.Expense,
+                            ),
+                    )
+                }
+
+                Spacer(
+                    modifier = Modifier.height(8.dp),
+                )
+
+                Text(
+                    text =
+                        "${topExpenseCategoryAmount.toRubleText()} · ${share.toPercentText()} расходов",
+                    color = HomeColors.TextSecondary,
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                Spacer(
+                    modifier = Modifier.height(10.dp),
+                )
+
+                Text(
+                    text =
+                        "Структура расходов появится после первых операций.",
+                    color = HomeColors.TextMuted,
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentTransactionsCard(
+    transactions:
+    List<HomeRecentTransactionUiModel>,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = HomeColors.Surface.copy(
+            alpha = 0.90f,
+        ),
+        shape = MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(
+            width = 1.dp,
+            color = HomeColors.Border.copy(
+                alpha = 0.72f,
+            ),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(
+                horizontal = 18.dp,
+                vertical = 16.dp,
+            ),
+        ) {
+            Text(
+                text = "Последние транзакции",
+                color = HomeColors.TextPrimary,
+                style =
+                    MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            if (transactions.isEmpty()) {
+                Spacer(
+                    modifier = Modifier.height(10.dp),
+                )
+
+                Text(
+                    text = "Операций пока нет.",
+                    color = HomeColors.TextMuted,
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                Spacer(
+                    modifier = Modifier.height(8.dp),
+                )
+
+                transactions.forEachIndexed {
+                        index,
+                        transaction,
+                    ->
+
+                    RecentTransactionRow(
+                        transaction = transaction,
+                    )
+
+                    if (
+                        index !=
+                        transactions.lastIndex
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(
+                                    HomeColors.Border.copy(
+                                        alpha = 0.55f,
+                                    ),
+                                ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentTransactionRow(
+    transaction: HomeRecentTransactionUiModel,
+) {
+    val isIncome =
+        transaction.type ==
+                TransactionType.INCOME
+
+    val accent =
+        if (isIncome) {
+            HomeColors.Income
+        } else {
+            HomeColors.Expense
+        }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                vertical = 10.dp,
+            ),
+        verticalAlignment =
+            Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(36.dp),
+            color = accent.copy(
+                alpha = 0.12f,
+            ),
+            shape = CircleShape,
+        ) {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize(),
+                contentAlignment =
+                    Alignment.Center,
+            ) {
+                TransactionTrendIcon(
+                    isIncome = isIncome,
+                    color = accent,
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(
+                    horizontal = 12.dp,
+                ),
+        ) {
+            Text(
+                text = transaction.categoryName,
+                color = HomeColors.TextPrimary,
+                style =
+                    MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            Text(
+                text =
+                    transaction.note
+                        .takeIf {
+                            it.isNotBlank()
+                        }
+                        ?: transaction
+                            .createdAtMillis
+                            .toHomeTransactionDateText(),
+                color = HomeColors.TextMuted,
+                style =
+                    MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        Text(
+            text =
+                if (isIncome) {
+                    transaction.amount
+                        .toIncomeText()
+                } else {
+                    transaction.amount
+                        .toExpenseText()
+                },
+            color = accent,
+            style =
+                MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+        )
+    }
+}
+
+@Composable
+private fun TransactionTrendIcon(
+    isIncome: Boolean,
+    color: Color,
+) {
+    Canvas(
+        modifier =
+            Modifier.size(22.dp),
+    ) {
+        val strokeWidth =
+            2.2.dp.toPx()
+
+        val leftX =
+            size.width * 0.12f
+        val middleX =
+            size.width * 0.48f
+        val rightX =
+            size.width * 0.86f
+
+        val highY =
+            size.height * 0.20f
+        val middleY =
+            size.height * 0.52f
+        val lowY =
+            size.height * 0.82f
+
+        val start =
+            Offset(
+                x = leftX,
+                y =
+                    if (isIncome) {
+                        lowY
+                    } else {
+                        highY
+                    },
+            )
+
+        val middle =
+            Offset(
+                x = middleX,
+                y = middleY,
+            )
+
+        val end =
+            Offset(
+                x = rightX,
+                y =
+                    if (isIncome) {
+                        highY
+                    } else {
+                        lowY
+                    },
+            )
+
+        val path =
+            Path().apply {
+                moveTo(
+                    start.x,
+                    start.y,
+                )
+                lineTo(
+                    middle.x,
+                    middle.y,
+                )
+                lineTo(
+                    end.x,
+                    end.y,
+                )
+            }
+
+        drawPath(
+            path = path,
+            color = color,
+            style =
+                androidx.compose.ui.graphics
+                    .drawscope.Stroke(
+                        width = strokeWidth,
+                        cap = StrokeCap.Round,
+                    ),
+        )
+
+        val arrowVerticalDirection =
+            if (isIncome) {
+                1f
+            } else {
+                -1f
+            }
+
+        drawLine(
+            color = color,
+            start = end,
+            end =
+                Offset(
+                    x =
+                        end.x -
+                                size.width * 0.17f,
+                    y =
+                        end.y +
+                                arrowVerticalDirection *
+                                size.height * 0.03f,
+                ),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+
+        drawLine(
+            color = color,
+            start = end,
+            end =
+                Offset(
+                    x =
+                        end.x -
+                                size.width * 0.03f,
+                    y =
+                        end.y +
+                                arrowVerticalDirection *
+                                size.height * 0.17f,
+                ),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
 private fun QuickActions(
     onAction: (HomeAction) -> Unit,
 ) {
@@ -840,7 +1506,13 @@ private fun NoActiveMonthState(
     onCreateMonth: () -> Unit,
     onOpenArchive: () -> Unit,
 ) {
-    StateCard {
+    StateCard(
+        modifier =
+            Modifier.padding(
+                top = 12.dp,
+                bottom = 24.dp,
+            ),
+    ) {
         Surface(
             color = HomeColors.PrimarySoft,
             shape = CircleShape,
@@ -968,10 +1640,12 @@ private fun HomeErrorState(
 
 @Composable
 private fun StateCard(
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            modifier.fillMaxWidth(),
         color = HomeColors.Surface.copy(
             alpha = 0.92f,
         ),
@@ -1151,6 +1825,20 @@ private fun AutoSizingMoneyText(
         },
     )
 }
+
+private fun Long.toHomeTransactionDateText(): String {
+    return HOME_TRANSACTION_DATE_FORMAT.format(
+        Date(this),
+    )
+}
+
+private val HOME_TRANSACTION_DATE_FORMAT =
+    SimpleDateFormat(
+        "d MMM, HH:mm",
+        Locale.forLanguageTag(
+            "ru-RU",
+        ),
+    )
 
 private fun BigDecimal.toRubleText(): String {
     val formatter = NumberFormat.getNumberInstance(

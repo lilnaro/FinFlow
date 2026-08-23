@@ -248,6 +248,8 @@ val appModule = module {
 
     viewModel {
         AssistantViewModel(
+            observeActiveFinancialMonthUseCase =
+                get(),
             observeFinancialAnalysisContextUseCase =
                 get(),
             observeFinancialAnalyticsUseCase =
@@ -271,7 +273,7 @@ val appModule = module {
         HomeViewModel(
             observeActiveFinancialMonthUseCase =
                 get(),
-            observeActiveMonthSummaryUseCase =
+            observeFinancialMonthReportUseCase =
                 get(),
             closeFinancialMonthUseCase =
                 get(),
@@ -318,6 +320,10 @@ val appModule = module {
     viewModel {
         ArchiveViewModel(
             observeArchivedFinancialMonthsUseCase =
+                get(),
+            observeActiveFinancialMonthUseCase =
+                get(),
+            closeFinancialMonthUseCase =
                 get(),
         )
     }

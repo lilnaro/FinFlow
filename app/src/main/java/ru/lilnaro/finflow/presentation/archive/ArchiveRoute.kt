@@ -13,6 +13,7 @@ import ru.lilnaro.finflow.presentation.archive.model.ArchiveMonthDetailsEffect
 @Composable
 fun ArchiveRoute(
     onNavigateBack: () -> Unit,
+    onNavigateToNewMonth: () -> Unit,
     onNavigateToMonthDetails: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ArchiveViewModel =
@@ -24,6 +25,11 @@ fun ArchiveRoute(
     val currentOnNavigateBack by
     rememberUpdatedState(
         onNavigateBack,
+    )
+
+    val currentOnNavigateToNewMonth by
+    rememberUpdatedState(
+        onNavigateToNewMonth,
     )
 
     val currentOnNavigateToMonthDetails by
@@ -38,6 +44,10 @@ fun ArchiveRoute(
                     currentOnNavigateBack()
                 }
 
+                ArchiveEffect.NavigateToNewMonth -> {
+                    currentOnNavigateToNewMonth()
+                }
+
                 is ArchiveEffect.NavigateToMonthDetails -> {
                     currentOnNavigateToMonthDetails(
                         effect.monthId,
@@ -50,6 +60,7 @@ fun ArchiveRoute(
     ArchiveScreen(
         uiState = uiState,
         onAction = viewModel::onAction,
+        showBackButton = false,
         modifier = modifier,
     )
 }

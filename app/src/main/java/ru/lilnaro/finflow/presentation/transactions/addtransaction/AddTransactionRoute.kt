@@ -6,9 +6,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import ru.lilnaro.finflow.presentation.transactions.addtransaction.model.AddTransactionAction
 import ru.lilnaro.finflow.presentation.transactions.addtransaction.model.AddTransactionEffect
@@ -27,6 +29,8 @@ fun AddTransactionRoute(
     val snackbarHostState = remember {
         SnackbarHostState()
     }
+
+    val snackbarScope = rememberCoroutineScope()
 
     val currentOnNavigateBack by rememberUpdatedState(
         onNavigateBack,
@@ -58,9 +62,15 @@ fun AddTransactionRoute(
                 }
 
                 is AddTransactionEffect.ShowMessage -> {
-                    snackbarHostState.showSnackbar(
-                        message = effect.message,
-                    )
+                    snackbarScope.launch {
+                        snackbarHostState
+                            .currentSnackbarData
+                            ?.dismiss()
+
+                        snackbarHostState.showSnackbar(
+                            message = effect.message,
+                        )
+                    }
                 }
             }
         }
