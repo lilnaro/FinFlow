@@ -116,6 +116,14 @@ class ObserveFinancialMonthReportUseCase(
                 val category =
                     categoriesById[transaction.categoryId]
 
+                val parentCategoryId =
+                    category?.parentCategoryId
+
+                val parentCategoryName =
+                    parentCategoryId?.let { id ->
+                        categoriesById[id]?.name
+                    }
+
                 FinancialReportTransaction(
                     id = transaction.id,
                     amount = transaction.amount,
@@ -124,6 +132,8 @@ class ObserveFinancialMonthReportUseCase(
                     categoryName = category?.name,
                     isCustomCategory =
                         category?.isCustom == true,
+                    parentCategoryId = parentCategoryId,
+                    parentCategoryName = parentCategoryName,
                     note = transaction.note,
                     createdAtMillis =
                         transaction.createdAtMillis,
@@ -162,11 +172,21 @@ class ObserveFinancialMonthReportUseCase(
                 val category =
                     categoriesById[categoryId]
 
+                val parentCategoryId =
+                    category?.parentCategoryId
+
+                val parentCategoryName =
+                    parentCategoryId?.let { id ->
+                        categoriesById[id]?.name
+                    }
+
                 FinancialCategoryBreakdown(
                     categoryId = categoryId,
                     categoryName = category?.name,
                     isCustomCategory =
                         category?.isCustom == true,
+                    parentCategoryId = parentCategoryId,
+                    parentCategoryName = parentCategoryName,
                     amount = amount,
                     transactionCount =
                         categoryTransactions.size,
