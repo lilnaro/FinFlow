@@ -12,6 +12,7 @@ import ru.lilnaro.finflow.domain.model.FinancialAnalysisTransaction
 import ru.lilnaro.finflow.domain.model.FinancialAnalyticsSnapshot
 import ru.lilnaro.finflow.domain.model.FinancialCategoryChange
 import ru.lilnaro.finflow.domain.model.FinancialFocusMonthAnalytics
+import ru.lilnaro.finflow.domain.model.FinancialForecastStatus
 import ru.lilnaro.finflow.domain.model.FinancialHistoryAnalytics
 import ru.lilnaro.finflow.domain.model.FinancialLargeTransactionSignal
 import ru.lilnaro.finflow.domain.model.FinancialMonthPace
@@ -41,6 +42,14 @@ class AnalyzeFinancialContextUseCase {
                 month.isClosed
             }
 
+        val historyAnalytics =
+            createHistoryAnalytics(
+                closedMonths = closedMonths,
+                latestClosedMonthChange =
+                    context.closedMonthChanges
+                        .lastOrNull(),
+            )
+
         return FinancialAnalyticsSnapshot(
             generatedAtMillis = nowMillis,
             confidence = context.confidence,
@@ -49,15 +58,12 @@ class AnalyzeFinancialContextUseCase {
                     createFocusMonthAnalytics(
                         month = month,
                         nowMillis = nowMillis,
+                        history =
+                            historyAnalytics,
                     )
                 },
             history =
-                createHistoryAnalytics(
-                    closedMonths = closedMonths,
-                    latestClosedMonthChange =
-                        context.closedMonthChanges
-                            .lastOrNull(),
-                ),
+                historyAnalytics,
             expenseCategoryChanges =
                 createLatestClosedCategoryChanges(
                     closedMonths = closedMonths,
@@ -80,6 +86,7 @@ class AnalyzeFinancialContextUseCase {
     private fun createFocusMonthAnalytics(
         month: FinancialAnalysisMonth,
         nowMillis: Long,
+        history: FinancialHistoryAnalytics,
     ): FinancialFocusMonthAnalytics {
         return FinancialFocusMonthAnalytics(
             financialMonthId =
@@ -107,6 +114,7 @@ class AnalyzeFinancialContextUseCase {
                 createMonthPace(
                     month = month,
                     nowMillis = nowMillis,
+                    history = history,
                 ),
         )
     }
@@ -114,52 +122,37 @@ class AnalyzeFinancialContextUseCase {
     private fun createMonthPace(
         month: FinancialAnalysisMonth,
         nowMillis: Long,
+        history: FinancialHistoryAnalytics,
     ): FinancialMonthPace? {
         if (month.isClosed) {
             return null
         }
 
-        val periodEndMillis =
-            createMonthEndMillis(
+        if (nowMillis < month.startedAtMillis) {
+            return null
+        }
+
+        val totalPeriodDays =
+            daysInFinancialMonth(
                 year = month.year,
                 monthNumber = month.monthNumber,
             )
 
-        if (
-            nowMillis < month.startedAtMillis ||
-            month.startedAtMillis >
-            periodEndMillis
-        ) {
+        if (totalPeriodDays <= 0) {
             return null
         }
-
-        val effectiveNowMillis =
-            nowMillis.coerceAtMost(
-                periodEndMillis,
-            )
 
         val elapsedDays =
             countCalendarDaysInclusive(
                 startMillis =
                     month.startedAtMillis,
                 endMillis =
-                    effectiveNowMillis,
+                    nowMillis,
             )
-
-        val totalPeriodDays =
-            countCalendarDaysInclusive(
-                startMillis =
-                    month.startedAtMillis,
-                endMillis =
-                    periodEndMillis,
-            )
-
-        if (
-            elapsedDays <= 0 ||
-            totalPeriodDays <= 0
-        ) {
-            return null
-        }
+                .coerceIn(
+                    minimumValue = 1,
+                    maximumValue = totalPeriodDays,
+                )
 
         val remainingDays =
             (totalPeriodDays - elapsedDays)
@@ -177,30 +170,77 @@ class AnalyzeFinancialContextUseCase {
                 divisor = elapsedDays,
             )
 
-        val projectedIncome =
-            projectMoney(
-                value = month.totalIncome,
-                elapsedDays = elapsedDays,
-                totalPeriodDays =
-                    totalPeriodDays,
-            )
+        val expenseTransactionCount =
+            month.transactions.count { transaction ->
+                transaction.type ==
+                        TransactionType.EXPENSE
+            }
+
+        val canProjectExpense =
+            elapsedDays >=
+                    MIN_FORECAST_ELAPSED_DAYS &&
+                    expenseTransactionCount >=
+                    MIN_EXPENSE_TRANSACTIONS_FOR_FORECAST
 
         val projectedExpense =
-            projectMoney(
-                value = month.totalExpense,
-                elapsedDays = elapsedDays,
-                totalPeriodDays =
-                    totalPeriodDays,
-            )
+            if (canProjectExpense) {
+                projectMoney(
+                    value = month.totalExpense,
+                    elapsedDays = elapsedDays,
+                    totalPeriodDays =
+                        totalPeriodDays,
+                )
+            } else {
+                null
+            }
+
+        val historicalIncome =
+            history.averageMonthlyIncome
+
+        val canProjectIncome =
+            history.closedMonthCount >=
+                    MIN_CLOSED_MONTHS_FOR_INCOME_FORECAST &&
+                    historicalIncome != null
+
+        val projectedIncome =
+            if (canProjectIncome) {
+                maxMoney(
+                    first = month.totalIncome,
+                    second =
+                        requireNotNull(
+                            historicalIncome,
+                        ),
+                )
+            } else {
+                null
+            }
 
         val projectedFinalBalance =
-            month.initialBudget
-                .add(projectedIncome)
-                .subtract(projectedExpense)
-                .setScale(
-                    MONEY_SCALE,
-                    RoundingMode.HALF_UP,
-                )
+            if (
+                projectedIncome != null &&
+                projectedExpense != null
+            ) {
+                month.initialBudget
+                    .add(projectedIncome)
+                    .subtract(projectedExpense)
+                    .setScale(
+                        MONEY_SCALE,
+                        RoundingMode.HALF_UP,
+                    )
+            } else {
+                null
+            }
+
+        val forecastStatus =
+            if (
+                projectedIncome != null &&
+                projectedExpense != null &&
+                projectedFinalBalance != null
+            ) {
+                FinancialForecastStatus.AVAILABLE
+            } else {
+                FinancialForecastStatus.INSUFFICIENT_DATA
+            }
 
         return FinancialMonthPace(
             elapsedDays = elapsedDays,
@@ -212,6 +252,8 @@ class AnalyzeFinancialContextUseCase {
                 averageDailyIncome,
             averageDailyExpense =
                 averageDailyExpense,
+            forecastStatus =
+                forecastStatus,
             projectedIncome =
                 projectedIncome,
             projectedExpense =
@@ -674,6 +716,17 @@ class AnalyzeFinancialContextUseCase {
             )
     }
 
+    private fun maxMoney(
+        first: BigDecimal,
+        second: BigDecimal,
+    ): BigDecimal {
+        return if (first >= second) {
+            first
+        } else {
+            second
+        }
+    }
+
     private fun projectMoney(
         value: BigDecimal,
         elapsedDays: Int,
@@ -693,34 +746,30 @@ class AnalyzeFinancialContextUseCase {
             )
     }
 
-    private fun createMonthEndMillis(
+    private fun daysInFinancialMonth(
         year: Int,
         monthNumber: Int,
-    ): Long {
+    ): Int {
         return Calendar
             .getInstance()
             .apply {
                 clear()
                 set(
+                    Calendar.YEAR,
                     year,
-                    monthNumber - 1,
-                    1,
-                    23,
-                    59,
-                    59,
                 )
                 set(
-                    Calendar.MILLISECOND,
-                    999,
+                    Calendar.MONTH,
+                    monthNumber - 1,
                 )
                 set(
                     Calendar.DAY_OF_MONTH,
-                    getActualMaximum(
-                        Calendar.DAY_OF_MONTH,
-                    ),
+                    1,
                 )
             }
-            .timeInMillis
+            .getActualMaximum(
+                Calendar.DAY_OF_MONTH,
+            )
     }
 
     private fun countCalendarDaysInclusive(
@@ -782,6 +831,15 @@ class AnalyzeFinancialContextUseCase {
     private companion object {
 
         const val MONEY_SCALE =
+            2
+
+        const val MIN_FORECAST_ELAPSED_DAYS =
+            7
+
+        const val MIN_EXPENSE_TRANSACTIONS_FOR_FORECAST =
+            5
+
+        const val MIN_CLOSED_MONTHS_FOR_INCOME_FORECAST =
             2
 
         const val MIN_TRANSACTIONS_FOR_LARGE_SIGNAL =

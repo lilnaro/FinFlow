@@ -14,7 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import ru.lilnaro.finflow.presentation.archive.ArchiveMonthDetailsRoute
 import ru.lilnaro.finflow.presentation.archive.ArchiveRoute
-import ru.lilnaro.finflow.presentation.assistant.AssistantScreen
+import ru.lilnaro.finflow.presentation.assistant.AssistantRoute
 import ru.lilnaro.finflow.presentation.home.HomeRoute
 import ru.lilnaro.finflow.presentation.newmonth.NewMonthRoute
 import ru.lilnaro.finflow.presentation.transactions.TransactionsRoute
@@ -120,8 +120,8 @@ fun FinFlowNavHost(
                 FinFlowDestination
                     .Assistant.route,
         ) {
-            AssistantScreen(
-                onBackClick = {
+            AssistantRoute(
+                onNavigateBack = {
                     navController.popBackStack()
                 },
             )

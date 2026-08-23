@@ -39,10 +39,17 @@ data class FinancialMonthPace(
     val remainingDays: Int,
     val averageDailyIncome: BigDecimal,
     val averageDailyExpense: BigDecimal,
-    val projectedIncome: BigDecimal,
-    val projectedExpense: BigDecimal,
-    val projectedFinalBalance: BigDecimal,
+    val forecastStatus:
+    FinancialForecastStatus,
+    val projectedIncome: BigDecimal?,
+    val projectedExpense: BigDecimal?,
+    val projectedFinalBalance: BigDecimal?,
 )
+
+enum class FinancialForecastStatus {
+    AVAILABLE,
+    INSUFFICIENT_DATA,
+}
 
 data class FinancialHistoryAnalytics(
     val closedMonthCount: Int,
