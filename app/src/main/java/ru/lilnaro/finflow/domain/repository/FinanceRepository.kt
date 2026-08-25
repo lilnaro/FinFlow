@@ -44,6 +44,10 @@ interface FinanceRepository {
         transactionId: Long,
     )
 
+    suspend fun deleteTransactionsByIds(
+        transactionIds: List<Long>,
+    )
+
     fun observeCategoriesByType(
         type: TransactionType,
     ): Flow<List<TransactionCategory>>

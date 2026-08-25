@@ -63,11 +63,9 @@ class DeleteTransactionsUseCase(
             )
         }
 
-        transactionIds.forEach { transactionId ->
-            financeRepository.deleteTransactionById(
-                transactionId = transactionId,
-            )
-        }
+        financeRepository.deleteTransactionsByIds(
+            transactionIds = transactionIds.toList(),
+        )
 
         return DeleteTransactionsResult.Success(
             deletedCount = transactionIds.size,

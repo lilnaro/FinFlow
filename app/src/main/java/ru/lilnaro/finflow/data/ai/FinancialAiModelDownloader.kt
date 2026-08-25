@@ -2,30 +2,64 @@ package ru.lilnaro.finflow.data.ai
 
 import android.app.DownloadManager
 import android.content.Context
-import android.net.Uri
 import android.os.StatFs
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import ru.lilnaro.finflow.domain.repository.FinancialAiModelDownloadInfo
 import ru.lilnaro.finflow.domain.repository.FinancialAiModelDownloadStartResult
 import ru.lilnaro.finflow.domain.repository.FinancialAiModelDownloadState
 
 class FinancialAiModelDownloader(
-    private val context: Context,
+    context: Context,
 ) {
 
-    private val downloadManager =
-        context.getSystemService(
-            Context.DOWNLOAD_SERVICE,
-        ) as DownloadManager
+    private val appContext =
+        context.applicationContext
 
-    private val preferences =
-        context.getSharedPreferences(
-            PREFERENCES_NAME,
+    private val downloadScope =
+        CoroutineScope(
+            SupervisorJob() +
+                    Dispatchers.IO,
+        )
+
+    private val operationMutex =
+        Mutex()
+
+    private val downloadedBytes =
+        AtomicLong(0L)
+
+    private val totalBytes =
+        AtomicLong(
+            MODEL_DOWNLOAD_SIZE_BYTES,
+        )
+
+    @Volatile
+    private var downloadJob: Job? = null
+
+    @Volatile
+    private var activeDownloader:
+            ResumableHttpFileDownloader? = null
+
+    @Volatile
+    private var lastFailureMessage:
+            String? = null
+
+    private val legacyPreferences =
+        appContext.getSharedPreferences(
+            LEGACY_PREFERENCES_NAME,
             Context.MODE_PRIVATE,
         )
 
@@ -67,347 +101,227 @@ class FinancialAiModelDownloader(
 
     suspend fun startDownload():
             FinancialAiModelDownloadStartResult {
-        val targetFile =
-            resolveTargetFile()
-                ?: return FinancialAiModelDownloadStartResult
+        return operationMutex.withLock {
+            recoverCompletedTargetIfPossible()
+
+            if (
+                resolveInstalledModelFile() != null
+            ) {
+                cleanupLegacySystemDownload()
+
+                return@withLock FinancialAiModelDownloadStartResult
+                    .AlreadyInstalled
+            }
+
+            if (
+                downloadJob?.isActive == true
+            ) {
+                return@withLock FinancialAiModelDownloadStartResult
+                    .AlreadyRunning
+            }
+
+            cleanupLegacySystemDownload()
+
+            val targetFile =
+                resolveTargetFile()
+                    ?: return@withLock FinancialAiModelDownloadStartResult
+                        .Failure(
+                            message =
+                                "Не удалось получить папку для локальной модели.",
+                        )
+
+            val partialFile =
+                resolvePartialFile()
+                    ?: return@withLock FinancialAiModelDownloadStartResult
+                        .Failure(
+                            message =
+                                "Не удалось подготовить временный файл локальной модели.",
+                        )
+
+            val directory =
+                targetFile.parentFile
+                    ?: return@withLock FinancialAiModelDownloadStartResult
+                        .Failure(
+                            message =
+                                "Не удалось получить папку для локальной модели.",
+                        )
+
+            if (
+                !directory.exists() &&
+                !directory.mkdirs()
+            ) {
+                return@withLock FinancialAiModelDownloadStartResult
                     .Failure(
                         message =
-                            "Не удалось получить папку для локальной модели.",
+                            "Не удалось создать папку для локальной модели.",
                     )
-
-        if (
-            resolveInstalledModelFile() != null
-        ) {
-            clearDownloadId()
-
-            return FinancialAiModelDownloadStartResult
-                .AlreadyInstalled
-        }
-
-        val existingDownloadId =
-            readDownloadId()
-
-        if (
-            existingDownloadId !=
-            NO_DOWNLOAD_ID
-        ) {
-            when (
-                readDownloadManagerStatus(
-                    downloadId =
-                        existingDownloadId,
-                )
-            ) {
-                DownloadManager.STATUS_PENDING,
-                DownloadManager.STATUS_RUNNING,
-                DownloadManager.STATUS_PAUSED,
-                    -> {
-                    return FinancialAiModelDownloadStartResult
-                        .AlreadyRunning
-                }
-
-                else -> {
-                    clearDownloadId()
-                }
             }
-        }
 
-        targetFile.parentFile
-            ?.mkdirs()
+            deleteInvalidTargetFile()
 
-        val availableBytes =
-            getAvailableBytes(
-                directory =
-                    targetFile.parentFile,
-            )
+            if (
+                partialFile.exists() &&
+                partialFile.length() >
+                MODEL_DOWNLOAD_SIZE_BYTES
+            ) {
+                partialFile.delete()
+            }
 
-        if (
-            availableBytes <
-            MINIMUM_REQUIRED_FREE_SPACE_BYTES
-        ) {
-            return FinancialAiModelDownloadStartResult
-                .NotEnoughSpace(
-                    availableBytes =
-                        availableBytes,
-                    requiredBytes =
-                        MINIMUM_REQUIRED_FREE_SPACE_BYTES,
+            val alreadyDownloadedBytes =
+                partialFile
+                    .takeIf { file ->
+                        file.exists()
+                    }
+                    ?.length()
+                    ?.coerceIn(
+                        minimumValue = 0L,
+                        maximumValue =
+                            MODEL_DOWNLOAD_SIZE_BYTES,
+                    )
+                    ?: 0L
+
+            val requiredFreeBytes =
+                calculateRequiredFreeSpace(
+                    alreadyDownloadedBytes =
+                        alreadyDownloadedBytes,
                 )
-        }
 
-        return try {
-            deleteCompletionMarker()
-            deleteStaleModelFiles()
+            val availableBytes =
+                getAvailableBytes(
+                    directory = directory,
+                )
 
-            val request =
-                DownloadManager.Request(
-                    Uri.parse(
+            if (
+                availableBytes <
+                requiredFreeBytes
+            ) {
+                return@withLock FinancialAiModelDownloadStartResult
+                    .NotEnoughSpace(
+                        availableBytes =
+                            availableBytes,
+                        requiredBytes =
+                            requiredFreeBytes,
+                    )
+            }
+
+            downloadedBytes.set(
+                alreadyDownloadedBytes,
+            )
+            totalBytes.set(
+                MODEL_DOWNLOAD_SIZE_BYTES,
+            )
+            lastFailureMessage = null
+
+            val downloader =
+                ResumableHttpFileDownloader(
+                    sourceUrl =
                         MODEL_DOWNLOAD_URL,
-                    ),
-                )
-                    .setTitle(
-                        "FinFlow AI",
-                    )
-                    .setDescription(
-                        "Загрузка локального AI-модуля (~3,7 ГБ)",
-                    )
-                    .setMimeType(
-                        "application/octet-stream",
-                    )
-                    .setNotificationVisibility(
-                        DownloadManager.Request
-                            .VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
-                    )
-                    // Пользователь заранее видит размер загрузки
-                    // и запускает её вручную, поэтому не блокируем
-                    // DownloadManager на metered-сетях. На эмуляторах
-                    // виртуальная сеть нередко помечается как metered,
-                    // из-за чего загрузка иначе может навсегда остаться на 0%.
-                    .setAllowedOverMetered(
-                        true,
-                    )
-                    .setAllowedOverRoaming(
-                        false,
-                    )
-                    .setDestinationInExternalFilesDir(
-                        context,
-                        null,
-                        "$MODEL_DIRECTORY_NAME/$MODEL_FILE_NAME",
-                    )
-
-            val downloadId =
-                downloadManager.enqueue(
-                    request,
+                    expectedBytes =
+                        MODEL_DOWNLOAD_SIZE_BYTES,
                 )
 
-            saveDownloadId(
-                downloadId = downloadId,
-            )
+            activeDownloader =
+                downloader
+
+            downloadJob =
+                downloadScope.launch {
+                    val result =
+                        downloader.download(
+                            partialFile =
+                                partialFile,
+                            onProgress =
+                                { currentBytes,
+                                  currentTotalBytes ->
+                                    downloadedBytes.set(
+                                        currentBytes,
+                                    )
+                                    totalBytes.set(
+                                        currentTotalBytes,
+                                    )
+                                },
+                        )
+
+                    when (result) {
+                        ResumableHttpFileDownloader
+                            .Result.Success -> {
+                            if (
+                                currentCoroutineContext()
+                                    .isActive
+                            ) {
+                                val installed =
+                                    finalizeDownloadedModel(
+                                        partialFile =
+                                            partialFile,
+                                        targetFile =
+                                            targetFile,
+                                    )
+
+                                if (!installed) {
+                                    lastFailureMessage =
+                                        "Загрузка завершилась, но файл модели не удалось подготовить к запуску."
+                                }
+                            }
+                        }
+
+                        ResumableHttpFileDownloader
+                            .Result.Cancelled -> Unit
+
+                        is ResumableHttpFileDownloader
+                        .Result.Failure -> {
+                            lastFailureMessage =
+                                result.message
+                        }
+                    }
+
+                    if (
+                        activeDownloader ===
+                        downloader
+                    ) {
+                        activeDownloader = null
+                    }
+                }
 
             FinancialAiModelDownloadStartResult
                 .Started
-        } catch (_: Throwable) {
-            FinancialAiModelDownloadStartResult
-                .Failure(
-                    message =
-                        "Не удалось начать загрузку локальной модели.",
-                )
         }
     }
 
     suspend fun cancelDownload() {
-        val downloadId =
-            readDownloadId()
+        operationMutex.withLock {
+            cleanupLegacySystemDownload()
 
-        if (
-            downloadId !=
-            NO_DOWNLOAD_ID
-        ) {
-            downloadManager.remove(
-                downloadId,
+            val downloader =
+                activeDownloader
+            val job =
+                downloadJob
+
+            downloader?.cancel()
+            job?.cancelAndJoin()
+
+            if (
+                activeDownloader ===
+                downloader
+            ) {
+                activeDownloader = null
+            }
+
+            downloadJob = null
+            lastFailureMessage = null
+            downloadedBytes.set(0L)
+            totalBytes.set(
+                MODEL_DOWNLOAD_SIZE_BYTES,
             )
-        }
 
-        clearDownloadId()
-        deleteCompletionMarker()
+            recoverCompletedTargetIfPossible()
 
-        resolveTargetFile()
-            ?.delete()
-    }
-
-    private fun readState():
-            FinancialAiModelDownloadState {
-        val targetFile =
-            resolveTargetFile()
-
-        val downloadId =
-            readDownloadId()
-
-        if (
-            downloadId !=
-            NO_DOWNLOAD_ID
-        ) {
-            return readActiveDownloadState(
-                downloadId = downloadId,
-                targetFile = targetFile,
-            )
-        }
-
-        if (
-            resolveInstalledModelFile() != null
-        ) {
-            return FinancialAiModelDownloadState
-                .Installed
-        }
-
-        deleteCompletionMarker()
-        deleteStaleModelFiles()
-
-        return FinancialAiModelDownloadState
-            .NotInstalled
-    }
-
-    private fun readActiveDownloadState(
-        downloadId: Long,
-        targetFile: File?,
-    ): FinancialAiModelDownloadState {
-        val query =
-            DownloadManager.Query()
-                .setFilterById(
-                    downloadId,
-                )
-
-        return try {
-            downloadManager
-                .query(query)
-                .use { cursor ->
-                    if (
-                        cursor == null ||
-                        !cursor.moveToFirst()
-                    ) {
-                        clearDownloadId()
-                        deleteCompletionMarker()
-
-                        targetFile
-                            ?.delete()
-
-                        return FinancialAiModelDownloadState
-                            .NotInstalled
-                    }
-
-                    val status =
-                        cursor.getInt(
-                            cursor.getColumnIndexOrThrow(
-                                DownloadManager
-                                    .COLUMN_STATUS,
-                            ),
-                        )
-
-                    when (status) {
-                        DownloadManager.STATUS_PENDING,
-                        DownloadManager.STATUS_RUNNING,
-                        DownloadManager.STATUS_PAUSED,
-                            -> {
-                            val downloadedBytes =
-                                cursor.getLong(
-                                    cursor.getColumnIndexOrThrow(
-                                        DownloadManager
-                                            .COLUMN_BYTES_DOWNLOADED_SO_FAR,
-                                    ),
-                                )
-                                    .coerceAtLeast(0L)
-
-                            val rawTotalBytes =
-                                cursor.getLong(
-                                    cursor.getColumnIndexOrThrow(
-                                        DownloadManager
-                                            .COLUMN_TOTAL_SIZE_BYTES,
-                                    ),
-                                )
-
-                            FinancialAiModelDownloadState
-                                .Downloading(
-                                    downloadedBytes =
-                                        downloadedBytes,
-                                    totalBytes =
-                                        rawTotalBytes
-                                            .takeIf { total ->
-                                                total > 0L
-                                            },
-                                )
-                        }
-
-                        DownloadManager.STATUS_SUCCESSFUL -> {
-                            val downloadedFile =
-                                resolveDownloadedFile(
-                                    cursor = cursor,
-                                )
-                                    ?: findValidDownloadedModelCandidate()
-
-                            clearDownloadId()
-
-                            val installedFile =
-                                downloadedFile
-                                    ?.let { file ->
-                                        normalizeDownloadedModelFile(
-                                            downloadedFile = file,
-                                        )
-                                    }
-
-                            if (installedFile != null) {
-                                FinancialAiModelDownloadState
-                                    .Installed
-                            } else {
-                                deleteCompletionMarker()
-                                deleteStaleModelFiles()
-
-                                FinancialAiModelDownloadState
-                                    .Failed(
-                                        message =
-                                            "Загрузка завершилась, но файл модели повреждён или неполный.",
-                                    )
-                            }
-                        }
-
-                        DownloadManager.STATUS_FAILED -> {
-                            clearDownloadId()
-                            deleteCompletionMarker()
-
-                            targetFile
-                                ?.delete()
-
-                            FinancialAiModelDownloadState
-                                .Failed(
-                                    message =
-                                        "Не удалось скачать локальную модель. Проверьте интернет и свободное место.",
-                                )
-                        }
-
-                        else -> {
-                            FinancialAiModelDownloadState
-                                .Downloading(
-                                    downloadedBytes = 0L,
-                                    totalBytes = null,
-                                )
-                        }
-                    }
-                }
-        } catch (_: Throwable) {
-            FinancialAiModelDownloadState
-                .Failed(
-                    message =
-                        "Не удалось проверить состояние загрузки.",
-                )
-        }
-    }
-
-    private fun readDownloadManagerStatus(
-        downloadId: Long,
-    ): Int? {
-        val query =
-            DownloadManager.Query()
-                .setFilterById(
-                    downloadId,
-                )
-
-        return try {
-            downloadManager
-                .query(query)
-                .use { cursor ->
-                    if (
-                        cursor == null ||
-                        !cursor.moveToFirst()
-                    ) {
-                        null
-                    } else {
-                        cursor.getInt(
-                            cursor.getColumnIndexOrThrow(
-                                DownloadManager
-                                    .COLUMN_STATUS,
-                            ),
-                        )
-                    }
-                }
-        } catch (_: Throwable) {
-            null
+            if (
+                resolveInstalledModelFile() == null
+            ) {
+                deleteCompletionMarker()
+                resolvePartialFile()
+                    ?.delete()
+                deleteInvalidTargetFile()
+            }
         }
     }
 
@@ -417,185 +331,155 @@ class FinancialAiModelDownloader(
             resolveTargetFile()
                 ?: return null
 
-        if (
+        return targetFile.takeIf { file ->
             isCompletedModelFile(
-                targetFile,
+                file = file,
             )
-        ) {
-            return targetFile
         }
-
-        val recoveredCandidate =
-            findValidDownloadedModelCandidate()
-                ?: return null
-
-        return normalizeDownloadedModelFile(
-            downloadedFile =
-                recoveredCandidate,
-        )
     }
 
-    private fun resolveDownloadedFile(
-        cursor: android.database.Cursor,
-    ): File? {
-        return try {
-            val localUriIndex =
-                cursor.getColumnIndex(
-                    DownloadManager
-                        .COLUMN_LOCAL_URI,
-                )
+    private fun readState():
+            FinancialAiModelDownloadState {
+        recoverCompletedTargetIfPossible()
 
-            if (localUriIndex < 0) {
-                return null
+        if (
+            resolveInstalledModelFile() != null
+        ) {
+            return FinancialAiModelDownloadState
+                .Installed
+        }
+
+        if (
+            downloadJob?.isActive == true
+        ) {
+            return FinancialAiModelDownloadState
+                .Downloading(
+                    downloadedBytes =
+                        downloadedBytes
+                            .get()
+                            .coerceAtLeast(0L),
+                    totalBytes =
+                        totalBytes
+                            .get()
+                            .takeIf { bytes ->
+                                bytes > 0L
+                            },
+                )
+        }
+
+        lastFailureMessage
+            ?.let { message ->
+                return FinancialAiModelDownloadState
+                    .Failed(
+                        message = message,
+                    )
             }
 
-            val localUriValue =
-                cursor.getString(
-                    localUriIndex,
-                )
-                    ?: return null
+        cleanupLegacySystemDownload()
+        deleteInvalidTargetFile()
 
-            val localUri =
-                Uri.parse(
-                    localUriValue,
-                )
-
-            if (
-                localUri.scheme !=
-                "file"
-            ) {
-                return null
-            }
-
-            localUri.path
-                ?.let { path ->
-                    File(path)
+        val partialBytes =
+            resolvePartialFile()
+                ?.takeIf { file ->
+                    file.exists()
                 }
-        } catch (_: Throwable) {
-            null
-        }
+                ?.length()
+                ?.coerceIn(
+                    minimumValue = 0L,
+                    maximumValue =
+                        MODEL_DOWNLOAD_SIZE_BYTES,
+                )
+                ?: 0L
+
+        downloadedBytes.set(
+            partialBytes,
+        )
+
+        return FinancialAiModelDownloadState
+            .NotInstalled
     }
 
-    private fun findValidDownloadedModelCandidate():
-            File? {
-        val targetFile =
-            resolveTargetFile()
-                ?: return null
-
-        val directory =
-            targetFile.parentFile
-                ?: return null
-
-        if (!directory.exists()) {
-            return null
-        }
-
-        return directory
-            .listFiles()
-            ?.asSequence()
-            ?.filter { file ->
-                isModelFileCandidate(
-                    file = file,
-                )
-            }
-            ?.filter { file ->
-                isValidModelFile(
-                    file = file,
-                )
-            }
-            ?.maxByOrNull { file ->
-                file.lastModified()
-            }
-    }
-
-    private fun normalizeDownloadedModelFile(
-        downloadedFile: File,
-    ): File? {
+    private fun finalizeDownloadedModel(
+        partialFile: File,
+        targetFile: File,
+    ): Boolean {
         if (
-            !isValidModelFile(
-                downloadedFile,
-            )
+            !partialFile.exists() ||
+            partialFile.length() !=
+            MODEL_DOWNLOAD_SIZE_BYTES
         ) {
-            return null
-        }
-
-        val targetFile =
-            resolveTargetFile()
-                ?: return null
-
-        if (
-            downloadedFile.absolutePath !=
-            targetFile.absolutePath
-        ) {
-            if (
-                targetFile.exists() &&
-                !targetFile.delete()
-            ) {
-                return null
-            }
-
-            if (
-                !downloadedFile.renameTo(
-                    targetFile,
-                )
-            ) {
-                return null
-            }
-        }
-
-        if (
-            !isValidModelFile(
-                targetFile,
-            )
-        ) {
-            return null
+            return false
         }
 
         deleteCompletionMarker()
 
-        return if (
-            createCompletionMarker()
+        if (
+            targetFile.exists() &&
+            !targetFile.delete()
         ) {
-            targetFile
-        } else {
-            null
+            return false
         }
+
+        if (
+            !partialFile.renameTo(
+                targetFile,
+            )
+        ) {
+            return false
+        }
+
+        if (
+            !isValidModelFile(
+                file = targetFile,
+            )
+        ) {
+            targetFile.delete()
+            return false
+        }
+
+        return createCompletionMarker()
     }
 
-    private fun deleteStaleModelFiles() {
+    private fun recoverCompletedTargetIfPossible() {
         val targetFile =
             resolveTargetFile()
                 ?: return
 
-        val directory =
-            targetFile.parentFile
-                ?: return
+        if (
+            isValidModelFile(
+                file = targetFile,
+            ) &&
+            resolveCompletionMarker()
+                ?.exists() != true
+        ) {
+            createCompletionMarker()
+        }
 
-        directory
-            .listFiles()
-            ?.filter { file ->
-                isModelFileCandidate(
-                    file = file,
-                )
-            }
-            ?.forEach { file ->
-                file.delete()
-            }
+        if (
+            resolveCompletionMarker()
+                ?.exists() == true &&
+            !isValidModelFile(
+                file = targetFile,
+            )
+        ) {
+            deleteCompletionMarker()
+        }
     }
 
-    private fun isModelFileCandidate(
-        file: File,
-    ): Boolean {
-        val fileName =
-            file.name
+    private fun deleteInvalidTargetFile() {
+        val targetFile =
+            resolveTargetFile()
+                ?: return
 
-        return file.isFile &&
-                fileName.startsWith(
-                    MODEL_FILE_BASENAME,
-                ) &&
-                fileName.endsWith(
-                    MODEL_FILE_EXTENSION,
-                )
+        if (
+            targetFile.exists() &&
+            !isValidModelFile(
+                file = targetFile,
+            )
+        ) {
+            targetFile.delete()
+            deleteCompletionMarker()
+        }
     }
 
     private fun isCompletedModelFile(
@@ -610,6 +494,15 @@ class FinancialAiModelDownloader(
                 completionMarker.isFile
     }
 
+    private fun isValidModelFile(
+        file: File,
+    ): Boolean {
+        return file.exists() &&
+                file.isFile &&
+                file.length() ==
+                MODEL_DOWNLOAD_SIZE_BYTES
+    }
+
     private fun createCompletionMarker():
             Boolean {
         val marker =
@@ -620,8 +513,11 @@ class FinancialAiModelDownloader(
             marker.parentFile
                 ?.mkdirs()
 
-            if (marker.exists()) {
-                marker.delete()
+            if (
+                marker.exists() &&
+                !marker.delete()
+            ) {
+                return false
             }
 
             marker.createNewFile()
@@ -633,6 +529,35 @@ class FinancialAiModelDownloader(
     private fun deleteCompletionMarker() {
         resolveCompletionMarker()
             ?.delete()
+    }
+
+    private fun resolveTargetFile():
+            File? {
+        val externalFilesDirectory =
+            appContext.getExternalFilesDir(
+                null,
+            )
+                ?: return null
+
+        return File(
+            File(
+                externalFilesDirectory,
+                MODEL_DIRECTORY_NAME,
+            ),
+            MODEL_FILE_NAME,
+        )
+    }
+
+    private fun resolvePartialFile():
+            File? {
+        val targetFile =
+            resolveTargetFile()
+                ?: return null
+
+        return File(
+            targetFile.parentFile,
+            "$MODEL_FILE_NAME$PARTIAL_FILE_SUFFIX",
+        )
     }
 
     private fun resolveCompletionMarker():
@@ -647,72 +572,60 @@ class FinancialAiModelDownloader(
         )
     }
 
-    private fun resolveTargetFile():
-            File? {
-        val externalFilesDirectory =
-            context.getExternalFilesDir(
-                null,
-            )
-                ?: return null
+    private fun calculateRequiredFreeSpace(
+        alreadyDownloadedBytes: Long,
+    ): Long {
+        val remainingBytes =
+            (
+                    MODEL_DOWNLOAD_SIZE_BYTES -
+                            alreadyDownloadedBytes
+                    )
+                .coerceAtLeast(0L)
 
-        return File(
-            File(
-                externalFilesDirectory,
-                MODEL_DIRECTORY_NAME,
-            ),
-            MODEL_FILE_NAME,
-        )
+        return remainingBytes +
+                DOWNLOAD_FREE_SPACE_HEADROOM_BYTES
     }
 
     private fun getAvailableBytes(
-        directory: File?,
+        directory: File,
     ): Long {
-        val path =
-            directory
-                ?.absolutePath
-                ?: context.filesDir.absolutePath
-
         return try {
-            StatFs(path).availableBytes
+            StatFs(
+                directory.absolutePath,
+            ).availableBytes
         } catch (_: Throwable) {
             0L
         }
     }
 
-    private fun isValidModelFile(
-        file: File,
-    ): Boolean {
-        return file.exists() &&
-                file.isFile &&
-                file.length() >=
-                MIN_MODEL_FILE_SIZE_BYTES
-    }
-
-    private fun readDownloadId(): Long {
-        return preferences.getLong(
-            DOWNLOAD_ID_KEY,
-            NO_DOWNLOAD_ID,
-        )
-    }
-
-    private fun saveDownloadId(
-        downloadId: Long,
-    ) {
-        preferences
-            .edit()
-            .putLong(
-                DOWNLOAD_ID_KEY,
-                downloadId,
+    private fun cleanupLegacySystemDownload() {
+        val downloadId =
+            legacyPreferences.getLong(
+                LEGACY_DOWNLOAD_ID_KEY,
+                NO_DOWNLOAD_ID,
             )
-            .apply()
-    }
 
-    private fun clearDownloadId() {
-        preferences
+        if (
+            downloadId !=
+            NO_DOWNLOAD_ID
+        ) {
+            try {
+                val downloadManager =
+                    appContext.getSystemService(
+                        Context.DOWNLOAD_SERVICE,
+                    ) as? DownloadManager
+
+                downloadManager?.remove(
+                    downloadId,
+                )
+            } catch (_: Throwable) {
+                // The legacy system task is best-effort cleanup only.
+            }
+        }
+
+        legacyPreferences
             .edit()
-            .remove(
-                DOWNLOAD_ID_KEY,
-            )
+            .clear()
             .apply()
     }
 
@@ -724,37 +637,38 @@ class FinancialAiModelDownloader(
         const val MODEL_FILE_NAME =
             "gemma-4-E4B-it.litertlm"
 
-        private const val MODEL_FILE_BASENAME =
-            "gemma-4-E4B-it"
-
-        private const val MODEL_FILE_EXTENSION =
-            ".litertlm"
-
         const val MIN_MODEL_FILE_SIZE_BYTES =
             3_500_000_000L
 
         const val MODEL_DOWNLOAD_SIZE_BYTES =
-            3_700_000_000L
+            3_659_530_240L
+
+        private const val DOWNLOAD_FREE_SPACE_HEADROOM_BYTES =
+            2_000_000_000L
 
         const val MINIMUM_REQUIRED_FREE_SPACE_BYTES =
-            5_700_000_000L
+            MODEL_DOWNLOAD_SIZE_BYTES +
+                    DOWNLOAD_FREE_SPACE_HEADROOM_BYTES
 
         const val MODEL_DOWNLOAD_URL =
-            "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm?download=true"
+            "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/28299f30ee4d43294517a4ac93abd6163412f07f/gemma-4-E4B-it.litertlm?download=true"
+
+        private const val PARTIAL_FILE_SUFFIX =
+            ".part"
 
         private const val COMPLETION_MARKER_SUFFIX =
             ".ready"
 
-        private const val PREFERENCES_NAME =
+        private const val LEGACY_PREFERENCES_NAME =
             "financial_ai_model_download"
 
-        private const val DOWNLOAD_ID_KEY =
+        private const val LEGACY_DOWNLOAD_ID_KEY =
             "download_id"
 
         private const val NO_DOWNLOAD_ID =
             -1L
 
         private const val PROGRESS_POLL_INTERVAL_MILLIS =
-            1_000L
+            500L
     }
 }

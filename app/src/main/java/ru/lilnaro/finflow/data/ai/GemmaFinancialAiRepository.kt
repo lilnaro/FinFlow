@@ -10,6 +10,7 @@ import com.google.ai.edge.litertlm.LogSeverity
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.Dispatchers
@@ -98,6 +99,8 @@ class GemmaFinancialAiRepository(
             )
 
             FinancialAiInitializationResult.Ready
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Throwable) {
             FinancialAiInitializationResult.Failure(
                 message =
@@ -216,6 +219,8 @@ class GemmaFinancialAiRepository(
                         answer = answer,
                     )
                 }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (_: Throwable) {
                 FinancialAiAnswerResult.Failure(
                     message =
@@ -270,6 +275,8 @@ class GemmaFinancialAiRepository(
                 modelFile = modelFile,
                 backend = Backend.GPU(),
             )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Throwable) {
             createAndInitializeEngine(
                 modelFile = modelFile,
@@ -318,7 +325,7 @@ class GemmaFinancialAiRepository(
 
         if (
             privateModel.exists() &&
-            privateModel.length() >
+            privateModel.length() >=
             MIN_MODEL_FILE_SIZE_BYTES
         ) {
             return privateModel
@@ -339,7 +346,7 @@ class GemmaFinancialAiRepository(
 
         if (
             stagedModel.exists() &&
-            stagedModel.length() >
+            stagedModel.length() >=
             MIN_MODEL_FILE_SIZE_BYTES
         ) {
             return stagedModel

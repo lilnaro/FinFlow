@@ -63,11 +63,11 @@ fun TransactionsRoute(
             successMessage
                 ?: return@LaunchedEffect
 
+        currentOnSuccessMessageShown()
+
         snackbarHostState.showSnackbar(
             message = message,
         )
-
-        currentOnSuccessMessageShown()
     }
 
     TransactionsScreen(
