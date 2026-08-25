@@ -202,6 +202,12 @@ fun FinFlowNavHost(
                         transactionsResultMessage =
                             message
 
+                        // Remove the transient add-transaction destination first.
+                        // Otherwise navigateToMainTab() can save the whole
+                        // Transactions -> AddTransaction stack and restore it
+                        // immediately, leaving the form stuck in isSaving=true.
+                        navController.popBackStack()
+
                         navigateToMainTab(
                             navController = navController,
                             destination =

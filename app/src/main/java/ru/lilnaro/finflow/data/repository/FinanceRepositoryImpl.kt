@@ -103,6 +103,14 @@ class FinanceRepositoryImpl(
         transactionDao.deleteTransactionById(transactionId)
     }
 
+    override suspend fun deleteTransactionsByIds(
+        transactionIds: List<Long>,
+    ) {
+        transactionDao.deleteTransactionsByIds(
+            transactionIds = transactionIds,
+        )
+    }
+
     override fun observeCategoriesByType(
         type: TransactionType,
     ): Flow<List<TransactionCategory>> {

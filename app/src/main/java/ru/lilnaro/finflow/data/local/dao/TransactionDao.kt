@@ -54,4 +54,14 @@ interface TransactionDao {
     suspend fun deleteTransactionById(
         transactionId: Long,
     )
+
+    @Query(
+        """
+        DELETE FROM transactions
+        WHERE id IN (:transactionIds)
+        """
+    )
+    suspend fun deleteTransactionsByIds(
+        transactionIds: List<Long>,
+    )
 }

@@ -2,14 +2,21 @@ package ru.lilnaro.finflow
 
 import android.app.Application
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import ru.lilnaro.finflow.data.local.initializer.DefaultTransactionCategoriesInitializer
 import ru.lilnaro.finflow.di.appModule
 
 class FinFlowApplication : Application() {
+
+    private val applicationScope =
+        CoroutineScope(
+            SupervisorJob() + Dispatchers.IO,
+        )
 
     override fun onCreate() {
         super.onCreate()
@@ -38,9 +45,7 @@ class FinFlowApplication : Application() {
         categoriesInitializer:
         DefaultTransactionCategoriesInitializer,
     ) {
-        runBlocking(
-            context = Dispatchers.IO,
-        ) {
+        applicationScope.launch {
             try {
                 categoriesInitializer.initialize()
             } catch (exception: Exception) {
